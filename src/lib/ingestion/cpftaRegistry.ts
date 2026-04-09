@@ -12,12 +12,70 @@ type DiscoveredSource = {
   discoveredFrom: string;
 };
 
+type CpftaPagePayload = {
+  contentMain?: {
+    htmlContents?: Array<{
+      sectionData?: string;
+    }>;
+  };
+};
+
 function hashString(value: string) {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
 function normalizeKey(url: string, label: string) {
   return `${label.trim().toLowerCase()}::${url.trim().toLowerCase()}`;
+}
+
+function stripTags(input: string) {
+  return input
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function inferStoreIdByName(nameHe: string) {
+  const t = nameHe.toLowerCase();
+  if (t.includes("שופרסל")) return "s1";
+  if (t.includes("רמי לוי")) return "s2";
+  if (t.includes("ויקטורי")) return "s3";
+  return "s1";
+}
+
+function extractSourcesFromSectionHtml(sectionHtml: string): DiscoveredSource[] {
+  const rows = [...sectionHtml.matchAll(/<tr>([\s\S]*?)<\/tr>/gim)];
+  const discovered: DiscoveredSource[] = [];
+
+  for (const rowMatch of rows) {
+    const rowHtml = rowMatch[1] ?? "";
+    const cells = [...rowHtml.matchAll(/<td>([\s\S]*?)<\/td>/gim)].map((m) => m[1] ?? "");
+    if (cells.length < 2) continue;
+
+    const networkName = stripTags(cells[0]);
+    if (!networkName || networkName.includes("שם הרשת")) continue;
+    const infoText = cells[2] ? stripTags(cells[2]) : undefined;
+    const storeId = inferStoreIdByName(networkName);
+    const links = [...cells[1].matchAll(/<a[^>]*href=["']([^"']+)["'][^>]*>/gim)]
+      .map((m) => (m[1] ?? "").trim())
+      .filter((href) => href.startsWith("http"));
+
+    links.forEach((href, idx) => {
+      const linkLabel = idx === 0 ? networkName : `${networkName} (${idx + 1})`;
+      discovered.push({
+        sourceKey: normalizeKey(href, linkLabel),
+        nameHe: linkLabel,
+        storeId,
+        feedUrl: href,
+        authHint: infoText,
+        discoveredFrom: "cpfta-json"
+      });
+    });
+  }
+
+  return discovered;
 }
 
 function getOverrideSourcesFromEnv(): DiscoveredSource[] {
@@ -50,7 +108,25 @@ function getOverrideSourcesFromEnv(): DiscoveredSource[] {
 }
 
 export async function syncCpftaRetailRegistry() {
-  const discovered = getOverrideSourcesFromEnv();
+  const discoveredFromJson: DiscoveredSource[] = [];
+  const jsonUrl = process.env.CPFTA_REGISTRY_JSON_URL ?? "";
+  if (jsonUrl) {
+    try {
+      const response = await fetch(jsonUrl, { cache: "no-store" });
+      if (response.ok) {
+        const payload = (await response.json()) as CpftaPagePayload;
+        const htmlContents = payload.contentMain?.htmlContents ?? [];
+        for (const chunk of htmlContents) {
+          if (!chunk.sectionData) continue;
+          discoveredFromJson.push(...extractSourcesFromSectionHtml(chunk.sectionData));
+        }
+      }
+    } catch {
+      // Fallback to env overrides only.
+    }
+  }
+
+  const discovered = [...discoveredFromJson, ...getOverrideSourcesFromEnv()];
   if (discovered.length === 0) {
     return {
       scannedAt: new Date().toISOString(),
@@ -58,7 +134,7 @@ export async function syncCpftaRetailRegistry() {
       created: 0,
       updated: 0,
       deactivated: 0,
-      note: "CPFTA_SOURCE_OVERRIDES_JSON is empty. No retailer sources were synced."
+      note: "No CPFTA sources found. Set CPFTA_REGISTRY_JSON_URL or CPFTA_SOURCE_OVERRIDES_JSON."
     };
   }
 

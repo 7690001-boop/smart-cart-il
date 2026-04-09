@@ -28,6 +28,7 @@ Set in `.env`:
 - `GOV_CATALOG_RESOURCE_ID` (required)
 - `GOV_CATALOG_API_KEY` (optional)
 - `CPFTA_SOURCE_OVERRIDES_JSON` (required JSON with retailer links/credentials metadata)
+ - `CPFTA_REGISTRY_JSON_URL` (optional: endpoint returning the gov page JSON payload)
   - Each source can include `syncCadenceMinutes` (minimum 15). Example:
   - `[{\"nameHe\":\"שופרסל\",\"storeId\":\"s1\",\"feedUrl\":\"https://...\",\"authHint\":\"token=...\",\"syncCadenceMinutes\":60}]`
 - `RETAILER_FEED_URLS` (optional comma-separated JSON feed URLs from supermarket websites)
