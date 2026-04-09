@@ -43,7 +43,9 @@ export default function PreferencesClient() {
 
   async function save() {
     const payload: Preferences = {
-      ...prefs,
+      ...prefs!,
+      maxDistanceKm: prefs!.maxDistanceKm ?? 15,
+      allowSplitStore: prefs!.allowSplitStore ?? false,
       preferredBrands: splitCsv(brandsText),
       excludedStores: splitCsv(storesText),
       preferredKosher: splitCsv(kosherText)
