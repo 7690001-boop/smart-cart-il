@@ -1,7 +1,11 @@
 import { GovernmentCatalogItem } from "@/lib/types";
 import { prisma } from "@/lib/db";
+import {
+  fetchAndParseCpftaFeed,
+  getLatestPriceFullUrlFromListingPage
+} from "@/lib/ingestion/cpftaXmlParser";
 
-type FeedFormat = "json";
+type FeedFormat = "json" | "cpfta-xml-listing";
 
 export type OfficialRetailSource = {
   id: string;
@@ -13,9 +17,14 @@ export type OfficialRetailSource = {
 };
 
 const defaultOfficialSources: OfficialRetailSource[] = [
-  { id: "shufersal", nameHe: "שופרסל", nameEn: "Shufersal", storeId: "s1", format: "json" },
-  { id: "rami-levy", nameHe: "רמי לוי", nameEn: "Rami Levy", storeId: "s2", format: "json" },
-  { id: "victory", nameHe: "ויקטורי", nameEn: "Victory", storeId: "s3", format: "json" }
+  {
+    id: "shufersal",
+    nameHe: "שופרסל",
+    nameEn: "Shufersal",
+    storeId: "shufersal",
+    feedUrl: "https://prices.shufersal.co.il/FileObject/UpdateCategory?catID=2&storeId=0&sort=Time&sortdir=DESC",
+    format: "cpfta-xml-listing"
+  }
 ];
 
 type FeedRecord = Record<string, unknown>;
@@ -76,7 +85,7 @@ export async function getOfficialRetailSources() {
       nameEn: s.nameEn ?? s.nameHe,
       storeId: s.storeId,
       feedUrl: s.feedUrl,
-      format: "json" as const
+      format: (s.authHint === "cpfta-xml-listing" ? "cpfta-xml-listing" : "json") as FeedFormat
     }));
   }
 
@@ -129,6 +138,13 @@ export async function updateRetailSourceCatalogSyncStatus(params: {
 
 export async function fetchOfficialSourceItems(source: OfficialRetailSource) {
   if (!source.feedUrl) return [];
+
+  if (source.format === "cpfta-xml-listing") {
+    const fileUrl = await getLatestPriceFullUrlFromListingPage(source.feedUrl);
+    if (!fileUrl) throw new Error(`No CPFTA file found at listing page for ${source.nameEn}`);
+    return fetchAndParseCpftaFeed(fileUrl);
+  }
+
   const response = await fetch(source.feedUrl, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`Official source failed (${response.status}) for ${source.nameEn}`);
