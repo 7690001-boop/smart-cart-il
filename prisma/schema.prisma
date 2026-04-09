@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id      String         @id @default(cuid())
+  email   String         @unique
+  name    String
+  lists   ShoppingList[]
+}
+
+model Store {
+  id    String     @id @default(cuid())
+  name  String
+  skus  StoreSku[]
+}
+
+model CanonicalProduct {
+  id                String     @id @default(cuid())
+  name              String
+  category          String
+  brand             String?
+  kosherAuthorities String[]
+  premium           Boolean
+  defaultSizeGram   Int
+  skus              StoreSku[]
+}
+
+model StoreSku {
+  id                 String           @id @default(cuid())
+  storeId            String
+  canonicalProductId String
+  skuName            String
+  brand              String?
+  sizeGram           Int
+  kosherAuthorities  String[]
+  premium            Boolean
+  priceAgorot        Int
+  updatedAt          DateTime
+  store              Store            @relation(fields: [storeId], references: [id])
+  canonicalProduct   CanonicalProduct @relation(fields: [canonicalProductId], references: [id])
+}
+
+model ShoppingList {
+  id      String             @id @default(cuid())
+  userId  String
+  name    String
+  user    User               @relation(fields: [userId], references: [id])
+  items   ShoppingListItem[]
+}
+
+model ShoppingListItem {
+  id                String       @id @default(cuid())
+  listId            String
+  canonicalProductId String
+  quantity          Int
+  brand             String
+  kosherRequired    Boolean
+  kosherAuthorities String[]
+  premiumOnly       Boolean
+  packageTolerance  Float
+  replaceable       Boolean
+  list              ShoppingList @relation(fields: [listId], references: [id])
+}
