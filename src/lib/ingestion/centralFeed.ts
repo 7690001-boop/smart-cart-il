@@ -1,17 +1,8 @@
 import { findBestCluster } from "@/lib/clustering/matcher";
 import { clusterReviewQueue, storeSkus } from "@/lib/data";
+import { GovernmentCatalogItem } from "@/lib/types";
 
-type FeedRow = {
-  sourceProductName: string;
-  storeId: string;
-  priceAgorot: number;
-  brand?: string;
-  sizeGram?: number;
-  kosherAuthorities?: string[];
-  premium?: boolean;
-};
-
-export function upsertFromCentralFeed(rows: FeedRow[]) {
+export function upsertFromCentralFeed(rows: GovernmentCatalogItem[]) {
   const now = new Date().toISOString();
 
   for (const row of rows) {

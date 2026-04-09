@@ -1,0 +1,78 @@
+import { upsertFromCentralFeed } from "@/lib/ingestion/centralFeed";
+import { appendIngestionRun } from "@/lib/ingestion/history";
+import { fetchOfficialSourceItems, getOfficialRetailSources } from "@/lib/ingestion/officialRetailSources";
+import { GovernmentCatalogItem, IngestionRunRecord } from "@/lib/types";
+import { log } from "@/lib/observability/logger";
+
+function dedupeItems(items: GovernmentCatalogItem[]) {
+  const map = new Map<string, GovernmentCatalogItem>();
+  for (const item of items) {
+    const key = `${item.storeId}::${item.barcode ?? item.sourceProductName.toLowerCase()}`;
+    map.set(key, item);
+  }
+  return [...map.values()];
+}
+
+export async function syncOfficialRetailSources(context?: {
+  correlationId?: string;
+  idempotencyKey?: string;
+}) {
+  const run: IngestionRunRecord = {
+    id: `ing-official-${Date.now()}`,
+    source: "retailer-web-feeds",
+    startedAt: new Date().toISOString(),
+    status: "failed",
+    fetchedItems: 0,
+    ingestedRows: 0,
+    sourceDetails: [],
+    correlationId: context?.correlationId,
+    idempotencyKey: context?.idempotencyKey
+  };
+
+  try {
+    const sources = getOfficialRetailSources();
+    const allItems: GovernmentCatalogItem[] = [];
+
+    for (const source of sources) {
+      try {
+        const items = await fetchOfficialSourceItems(source);
+        allItems.push(...items);
+        run.sourceDetails?.push({
+          sourceName: source.nameHe,
+          fetchedItems: items.length,
+          status: "success"
+        });
+      } catch (error) {
+        run.sourceDetails?.push({
+          sourceName: source.nameHe,
+          fetchedItems: 0,
+          status: "failed",
+          errorMessage: error instanceof Error ? error.message : "source sync failed"
+        });
+      }
+    }
+
+    const deduped = dedupeItems(allItems);
+    const result = upsertFromCentralFeed(deduped);
+    run.status = "success";
+    run.fetchedItems = deduped.length;
+    run.ingestedRows = result.ingestedRows;
+    run.finishedAt = new Date().toISOString();
+    await appendIngestionRun(run);
+    log("info", "official sources sync success", {
+      correlationId: context?.correlationId,
+      fetchedItems: run.fetchedItems,
+      ingestedRows: run.ingestedRows
+    });
+    return run;
+  } catch (error) {
+    run.errorMessage = error instanceof Error ? error.message : "Official sources sync failed";
+    run.finishedAt = new Date().toISOString();
+    await appendIngestionRun(run);
+    log("error", "official sources sync failed", {
+      correlationId: context?.correlationId,
+      errorMessage: run.errorMessage
+    });
+    throw error;
+  }
+}

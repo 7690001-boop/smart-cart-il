@@ -67,3 +67,29 @@ model ShoppingListItem {
   replaceable       Boolean
   list              ShoppingList @relation(fields: [listId], references: [id])
 }
+
+model IngestionRun {
+  id           String   @id
+  source       String
+  startedAt    DateTime
+  finishedAt   DateTime?
+  status       String
+  fetchedItems Int
+  ingestedRows Int
+  errorMessage String?
+  sourceDetails Json?
+  correlationId String?
+  idempotencyKey String?
+  createdAt    DateTime @default(now())
+}
+
+model JobExecution {
+  id            String   @id
+  jobName        String
+  idempotencyKey String   @unique
+  status         String
+  attempts       Int      @default(1)
+  lastError      String?
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
+}

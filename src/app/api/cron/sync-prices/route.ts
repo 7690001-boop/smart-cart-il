@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
-import { upsertFromCentralFeed } from "@/lib/ingestion/centralFeed";
+import { syncAllGovernmentItems } from "@/lib/ingestion/syncGovernmentCatalog";
+import { syncOfficialRetailSources } from "@/lib/ingestion/syncOfficialSources";
 
 export async function GET() {
-  const demoRows = [
-    {
-      sourceProductName: "Tnuva Milk 3% 1L",
-      storeId: "s1",
-      priceAgorot: 665,
-      brand: "Tnuva",
-      sizeGram: 1000,
-      kosherAuthorities: ["Rabanut"],
-      premium: false
-    }
-  ];
-  const result = upsertFromCentralFeed(demoRows);
-  return NextResponse.json({ mode: "demo-cron", ...result });
+  const correlationBase = `cron-${Date.now()}`;
+  try {
+    const governmentRun = await syncAllGovernmentItems({
+      correlationId: `${correlationBase}-government`,
+      idempotencyKey: `cron-government-${new Date().toISOString().slice(0, 10)}`
+    });
+    const officialRun = await syncOfficialRetailSources({
+      correlationId: `${correlationBase}-official`,
+      idempotencyKey: `cron-official-${new Date().toISOString().slice(0, 10)}`
+    });
+    return NextResponse.json({ mode: "scheduled", governmentRun, officialRun });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Cron sync failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

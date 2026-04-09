@@ -1,5 +1,21 @@
-import { canonicalProducts, shoppingLists, storeSkus, stores } from "@/lib/data";
-import { PreferenceRules, ShoppingListItem, StoreSku } from "@/lib/types";
+import {
+  canonicalProducts,
+  shoppingLists,
+  storeSkus,
+  stores,
+  userStoreFilterPreferences
+} from "@/lib/data";
+import { PreferenceRules, ShoppingListItem, StoreSku, UserStoreFilterPreferences } from "@/lib/types";
+
+type Location = {
+  latitude: number;
+  longitude: number;
+};
+
+type OptimizationOptions = {
+  userLocation?: Location;
+  storePreferences?: UserStoreFilterPreferences;
+};
 
 function matchesPreferences(item: ShoppingListItem, sku: StoreSku) {
   const canonical = canonicalProducts.find((cp) => cp.id === item.canonicalProductId);
@@ -26,8 +42,64 @@ function matchesPreferences(item: ShoppingListItem, sku: StoreSku) {
 export function optimizeSingleStore(listId: string) {
   const list = shoppingLists.find((l) => l.id === listId);
   if (!list) return null;
+  const defaultStorePreferences = userStoreFilterPreferences[list.userId] ?? {
+    maxDistanceKm: 9999,
+    whitelistStoreIds: [],
+    blacklistStoreIds: []
+  };
+
+  return optimizeSingleStoreWithOptions(listId, {
+    storePreferences: defaultStorePreferences
+  });
+}
+
+function toRadians(value: number) {
+  return (value * Math.PI) / 180;
+}
+
+function distanceKm(a: Location, b: Location) {
+  const earthRadiusKm = 6371;
+  const dLat = toRadians(b.latitude - a.latitude);
+  const dLon = toRadians(b.longitude - a.longitude);
+  const lat1 = toRadians(a.latitude);
+  const lat2 = toRadians(b.latitude);
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  return 2 * earthRadiusKm * Math.asin(Math.sqrt(h));
+}
+
+function isAllowedStore(
+  storeId: string,
+  storePreferences: UserStoreFilterPreferences,
+  userLocation?: Location
+) {
+  if (storePreferences.blacklistStoreIds.includes(storeId)) return false;
+  if (
+    storePreferences.whitelistStoreIds.length > 0 &&
+    !storePreferences.whitelistStoreIds.includes(storeId)
+  ) {
+    return false;
+  }
+  if (!userLocation) return true;
+
+  const store = stores.find((s) => s.id === storeId);
+  if (!store) return false;
+  const dist = distanceKm(userLocation, { latitude: store.latitude, longitude: store.longitude });
+  return dist <= storePreferences.maxDistanceKm;
+}
+
+export function optimizeSingleStoreWithOptions(listId: string, options: OptimizationOptions = {}) {
+  const list = shoppingLists.find((l) => l.id === listId);
+  if (!list) return null;
+  const storePreferences = options.storePreferences ??
+    userStoreFilterPreferences[list.userId] ?? {
+      maxDistanceKm: 9999,
+      whitelistStoreIds: [],
+      blacklistStoreIds: []
+    };
 
   const results = stores
+    .filter((store) => isAllowedStore(store.id, storePreferences, options.userLocation))
     .map((store) => {
       let totalAgorot = 0;
       const items = [];
@@ -71,6 +143,7 @@ export function optimizeSingleStore(listId: string) {
   return {
     listId,
     recommended: winner,
-    runnersUp: results.slice(1, 3)
+    runnersUp: results.slice(1, 3),
+    appliedStoreFilters: storePreferences
   };
 }

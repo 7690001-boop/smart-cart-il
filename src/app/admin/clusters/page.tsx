@@ -1,6 +1,19 @@
+import { authOptions } from "@/auth";
 import { canonicalProducts, clusterReviewQueue } from "@/lib/data";
+import { getServerSession } from "next-auth";
+import { isAdminEmail } from "@/lib/admin";
 
-export default function AdminClustersPage() {
+export default async function AdminClustersPage() {
+  const session = await getServerSession(authOptions);
+  if (!isAdminEmail(session?.user?.email)) {
+    return (
+      <section className="space-y-4 rounded border bg-white p-4">
+        <h1 className="text-xl font-semibold">ניהול</h1>
+        <p className="text-sm text-slate-700">אין הרשאת מנהל לחשבון הזה.</p>
+      </section>
+    );
+  }
+
   return (
     <section className="space-y-4">
       <h1 className="text-xl font-semibold">Cluster Review Queue</h1>
