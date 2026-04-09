@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 
 type Preferences = {
   maxDistanceKm: number;
+  homeLatitude?: number | null;
+  homeLongitude?: number | null;
   allowSplitStore: boolean;
   preferredKosher: string[];
   preferredBrands: string[];
@@ -67,6 +69,44 @@ export default function PreferencesClient() {
           onChange={(e) => setPrefs({ ...prefs, maxDistanceKm: Number(e.target.value) || 0 })}
         />
       </label>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="block text-sm">
+          קו רוחב ביתי (Latitude)
+          <input
+            type="number"
+            step="0.000001"
+            min={-90}
+            max={90}
+            className="mt-1 w-full rounded border p-2"
+            value={prefs.homeLatitude ?? ""}
+            onChange={(e) =>
+              setPrefs({
+                ...prefs,
+                homeLatitude: e.target.value.trim() === "" ? null : Number(e.target.value)
+              })
+            }
+          />
+        </label>
+
+        <label className="block text-sm">
+          קו אורך ביתי (Longitude)
+          <input
+            type="number"
+            step="0.000001"
+            min={-180}
+            max={180}
+            className="mt-1 w-full rounded border p-2"
+            value={prefs.homeLongitude ?? ""}
+            onChange={(e) =>
+              setPrefs({
+                ...prefs,
+                homeLongitude: e.target.value.trim() === "" ? null : Number(e.target.value)
+              })
+            }
+          />
+        </label>
+      </div>
 
       <label className="flex items-center gap-2 text-sm">
         <input

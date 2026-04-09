@@ -5,6 +5,8 @@ import { requireDbUser } from "@/lib/sessionUser";
 
 const updateSchema = z.object({
   maxDistanceKm: z.number().int().min(0).max(200),
+  homeLatitude: z.number().min(-90).max(90).nullable().optional(),
+  homeLongitude: z.number().min(-180).max(180).nullable().optional(),
   allowSplitStore: z.boolean(),
   preferredKosher: z.array(z.string()).max(20),
   preferredBrands: z.array(z.string()).max(50),

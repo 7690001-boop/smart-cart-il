@@ -73,6 +73,8 @@ model UserPreferenceProfile {
   id               String   @id @default(cuid())
   userId           String   @unique
   maxDistanceKm    Int      @default(15)
+  homeLatitude     Float?
+  homeLongitude    Float?
   allowSplitStore  Boolean  @default(false)
   preferredKosher  String[]
   preferredBrands  String[]

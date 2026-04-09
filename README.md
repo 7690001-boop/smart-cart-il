@@ -28,9 +28,9 @@ Set in `.env`:
 - `GOV_CATALOG_RESOURCE_ID` (required)
 - `GOV_CATALOG_API_KEY` (optional)
 - `CPFTA_SOURCE_OVERRIDES_JSON` (required JSON with retailer links/credentials metadata)
- - `CPFTA_REGISTRY_JSON_URL` (optional: endpoint returning the gov page JSON payload)
-  - Each source can include `syncCadenceMinutes` (minimum 15). Example:
-  - `[{\"nameHe\":\"שופרסל\",\"storeId\":\"s1\",\"feedUrl\":\"https://...\",\"authHint\":\"token=...\",\"syncCadenceMinutes\":60}]`
+- `CPFTA_REGISTRY_JSON_URL` (optional: endpoint returning the gov page JSON payload)
+- Each source can include `syncCadenceMinutes` (minimum 15). Example:
+- `[{\"nameHe\":\"שופרסל\",\"storeId\":\"s1\",\"feedUrl\":\"https://...\",\"authHint\":\"token=...\",\"syncCadenceMinutes\":60}]`
 - `RETAILER_FEED_URLS` (optional comma-separated JSON feed URLs from supermarket websites)
 - `OFFICIAL_RETAIL_SOURCES_JSON` (optional JSON array to override official source registry)
 - `ADMIN_API_KEY` (required for `/api/admin/*`)
@@ -39,6 +39,7 @@ Set in `.env`:
 - `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` (optional)
 
 Recommended strategy:
+
 - Use government catalog as base truth (coverage + compliance).
 - Add retailer feeds to enrich barcode/image fields.
 - Use unified sync endpoint to merge and deduplicate.
@@ -84,4 +85,5 @@ Set in `.env` or cloud env vars:
 Then use `/login` page to sign in with Gmail.
 
 To grant admin power to a specific user, add their Gmail to:
+
 - `ADMIN_EMAILS` (comma-separated), e.g. `ADMIN_EMAILS="you@gmail.com,ops@gmail.com"`
