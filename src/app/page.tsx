@@ -18,6 +18,9 @@ export default function HomePage() {
         <Link className="rounded border bg-white p-4" href="/optimize">
           מצא את הסל הזול ביותר
         </Link>
+        <Link className="rounded border bg-white p-4" href="/preferences">
+          העדפות אישיות
+        </Link>
       </div>
     </section>
   );

@@ -27,12 +27,21 @@ export default function ItemCatalogSelector() {
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [query, setQuery] = useState("");
+  const [listId, setListId] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string>("");
 
   useEffect(() => {
     fetch("/api/items")
       .then((res) => res.json())
       .then((data: CatalogItem[]) => setItems(data))
       .catch(() => setItems([]));
+
+    fetch("/api/lists")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((lists: Array<{ id: string }>) => {
+        if (lists.length > 0) setListId(lists[0].id);
+      })
+      .catch(() => setListId(null));
 
     const saved = window.localStorage.getItem(storageKey);
     if (saved) {
@@ -59,9 +68,43 @@ export default function ItemCatalogSelector() {
     setSelected((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
   }
 
+  async function addSelectedToList() {
+    if (!listId || selected.length === 0) return;
+    let success = 0;
+    for (const productId of selected) {
+      const res = await fetch(`/api/lists/${listId}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          canonicalProductId: productId,
+          quantity: 1,
+          preferences: {
+            brand: "flexible",
+            kosherRequired: false,
+            kosherAuthorities: [],
+            premiumOnly: false,
+            packageSizeTolerancePercent: 20,
+            replaceable: true
+          }
+        })
+      });
+      if (res.ok) success += 1;
+    }
+    setStatusMessage(`נוספו ${success} פריטים לרשימה`);
+  }
+
   return (
     <div className="space-y-3">
       <div className="text-sm text-slate-600">נבחרו {selected.length} פריטים</div>
+      <button
+        type="button"
+        onClick={addSelectedToList}
+        disabled={!listId || selected.length === 0}
+        className="rounded bg-blue-600 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+      >
+        הוספה לרשימת הקניות
+      </button>
+      {statusMessage ? <div className="text-xs text-green-700">{statusMessage}</div> : null}
       <input
         value={query}
         onChange={(e) => setQuery(e.target.value)}

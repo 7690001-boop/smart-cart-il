@@ -8,6 +8,7 @@ import {
 } from "@/lib/ingestion/officialRetailSources";
 import { GovernmentCatalogItem, IngestionRunRecord } from "@/lib/types";
 import { log } from "@/lib/observability/logger";
+import { persistRetailOffers } from "@/lib/ingestion/persistOffers";
 
 function dedupeItems(items: GovernmentCatalogItem[]) {
   const map = new Map<string, GovernmentCatalogItem>();
@@ -45,6 +46,7 @@ export async function syncOfficialRetailSources(context?: {
       try {
         const items = await fetchOfficialSourceItems(source);
         allItems.push(...items);
+        await persistRetailOffers(items, source.id);
         await updateRetailSourceCatalogSyncStatus({
           sourceKey: source.id,
           status: "success"

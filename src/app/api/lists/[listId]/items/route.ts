@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireUserId } from "@/lib/auth";
-import { canonicalProducts, shoppingLists } from "@/lib/data";
+import { prisma } from "@/lib/db";
+import { requireDbUser } from "@/lib/sessionUser";
 
 const addItemSchema = z.object({
   canonicalProductId: z.string().min(1),
@@ -20,21 +20,52 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ listId: string }> }
 ) {
-  const userId = await requireUserId();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await requireDbUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { listId } = await params;
-  const list = shoppingLists.find((l) => l.id === listId && l.userId === userId);
+  const list = await prisma.shoppingList.findFirst({
+    where: { id: listId, userId: user.id }
+  });
   if (!list) return NextResponse.json({ error: "List not found" }, { status: 404 });
 
   const body = addItemSchema.safeParse(await request.json());
   if (!body.success) return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
 
-  if (!canonicalProducts.some((cp) => cp.id === body.data.canonicalProductId)) {
-    return NextResponse.json({ error: "Invalid product" }, { status: 400 });
-  }
-
-  const item = { id: `li-${Date.now()}`, ...body.data };
-  list.items.push(item);
+  const item = await prisma.shoppingListItem.create({
+    data: {
+      listId,
+      canonicalProductId: body.data.canonicalProductId,
+      quantity: body.data.quantity,
+      brand: body.data.preferences.brand,
+      kosherRequired: body.data.preferences.kosherRequired,
+      kosherAuthorities: body.data.preferences.kosherAuthorities ?? [],
+      premiumOnly: body.data.preferences.premiumOnly,
+      packageTolerance: body.data.preferences.packageSizeTolerancePercent,
+      replaceable: body.data.preferences.replaceable
+    }
+  });
   return NextResponse.json(item, { status: 201 });
+}
+
+const deleteSchema = z.object({
+  itemId: z.string().min(1)
+});
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ listId: string }> }) {
+  const user = await requireDbUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { listId } = await params;
+  const body = deleteSchema.safeParse(await request.json());
+  if (!body.success) return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+
+  const list = await prisma.shoppingList.findFirst({
+    where: { id: listId, userId: user.id }
+  });
+  if (!list) return NextResponse.json({ error: "List not found" }, { status: 404 });
+
+  await prisma.shoppingListItem.deleteMany({
+    where: { id: body.data.itemId, listId }
+  });
+  return NextResponse.json({ ok: true });
 }

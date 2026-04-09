@@ -1,31 +1,43 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireUserId } from "@/lib/auth";
-import { shoppingLists } from "@/lib/data";
+import { prisma } from "@/lib/db";
+import { requireDbUser, requireDefaultList } from "@/lib/sessionUser";
 
 const createListSchema = z.object({
   name: z.string().min(1)
 });
 
 export async function GET() {
-  const userId = await requireUserId();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  return NextResponse.json(shoppingLists.filter((l) => l.userId === userId));
+  const user = await requireDbUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  await requireDefaultList(user.id);
+  const lists = await prisma.shoppingList.findMany({
+    where: { userId: user.id },
+    include: { items: true }
+  });
+  return NextResponse.json(lists);
 }
 
 export async function POST(request: Request) {
-  const userId = await requireUserId();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await requireDbUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = createListSchema.safeParse(await request.json());
   if (!body.success) return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
 
-  const list = {
-    id: `l-${Date.now()}`,
-    userId,
-    name: body.data.name,
-    items: []
-  };
-  shoppingLists.push(list);
-  return NextResponse.json(list, { status: 201 });
+  const list = await prisma.shoppingList.create({
+    data: {
+      userId: user.id,
+      name: body.data.name
+    }
+  });
+  return NextResponse.json(
+    {
+      id: list.id,
+      userId: list.userId,
+      name: list.name,
+      items: []
+    },
+    { status: 201 }
+  );
 }
