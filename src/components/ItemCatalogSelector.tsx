@@ -5,8 +5,11 @@ import { useEffect, useMemo, useState } from "react";
 type CatalogItem = {
   id: string;
   name: string;
+  nameHe?: string;
   category: string;
+  categoryHe?: string;
   brand?: string;
+  brandHe?: string;
   defaultSizeGram: number;
   cheapestPriceAgorot: number | null;
   cheapestStoreNameHe: string | null;
@@ -76,9 +79,10 @@ export default function ItemCatalogSelector() {
                 className="mt-1"
               />
               <span>
-                <span className="block font-medium">{item.name}</span>
+                <span className="block font-medium">{item.nameHe ?? item.name}</span>
                 <span className="text-sm text-slate-600">
-                  קטגוריה: {item.category} | מותג: {item.brand ?? "ללא"} | גודל:{" "}
+                  קטגוריה: {item.categoryHe ?? item.category} | מותג:{" "}
+                  {item.brandHe ?? item.brand ?? "ללא"} | גודל:{" "}
                   {item.defaultSizeGram} גרם
                 </span>
                 <span className="block text-sm text-slate-700">

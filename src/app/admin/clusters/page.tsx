@@ -2,6 +2,7 @@ import { authOptions } from "@/auth";
 import { canonicalProducts, clusterReviewQueue } from "@/lib/data";
 import { getServerSession } from "next-auth";
 import { isAdminEmail } from "@/lib/admin";
+import Link from "next/link";
 
 export default async function AdminClustersPage() {
   const session = await getServerSession(authOptions);
@@ -16,7 +17,12 @@ export default async function AdminClustersPage() {
 
   return (
     <section className="space-y-4">
-      <h1 className="text-xl font-semibold">Cluster Review Queue</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">ניהול התאמות מוצרים</h1>
+        <Link href="/admin/import-status" className="rounded border bg-white px-3 py-1 text-sm">
+          סטטוס ייבוא
+        </Link>
+      </div>
       <ul className="space-y-3">
         {clusterReviewQueue.map((q) => {
           const candidate = canonicalProducts.find((c) => c.id === q.candidateCanonicalId);

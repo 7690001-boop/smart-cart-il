@@ -35,8 +35,11 @@ export type UserStoreFilterPreferences = {
 export type CanonicalProduct = {
   id: string;
   name: string;
+  nameHe?: string;
   category: string;
+  categoryHe?: string;
   brand?: string;
+  brandHe?: string;
   kosherAuthorities: string[];
   premium: boolean;
   defaultSizeGram: number;

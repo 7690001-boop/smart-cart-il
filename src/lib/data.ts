@@ -43,8 +43,11 @@ export const canonicalProducts: CanonicalProduct[] = [
   {
     id: "cp1",
     name: "Milk 3%",
+    nameHe: "חלב 3%",
     category: "Dairy",
+    categoryHe: "מוצרי חלב",
     brand: "Tnuva",
+    brandHe: "תנובה",
     kosherAuthorities: ["Rabanut"],
     premium: false,
     defaultSizeGram: 1000
@@ -52,8 +55,11 @@ export const canonicalProducts: CanonicalProduct[] = [
   {
     id: "cp2",
     name: "Eggs L 12",
+    nameHe: "ביצים L 12",
     category: "Eggs",
+    categoryHe: "ביצים",
     brand: "Galili",
+    brandHe: "גלילי",
     kosherAuthorities: ["Badatz", "Rabanut"],
     premium: false,
     defaultSizeGram: 720
@@ -62,8 +68,11 @@ export const canonicalProducts: CanonicalProduct[] = [
   {
     id: "cp3",
     name: "White Bread",
+    nameHe: "לחם לבן",
     category: "Bakery",
+    categoryHe: "מאפייה",
     brand: "Angel",
+    brandHe: "אנג'ל",
     kosherAuthorities: ["Rabanut"],
     premium: false,
     defaultSizeGram: 750
@@ -71,8 +80,11 @@ export const canonicalProducts: CanonicalProduct[] = [
   {
     id: "cp4",
     name: "Cottage Cheese 5%",
+    nameHe: "קוטג' 5%",
     category: "Dairy",
+    categoryHe: "מוצרי חלב",
     brand: "Tnuva",
+    brandHe: "תנובה",
     kosherAuthorities: ["Badatz", "Rabanut"],
     premium: false,
     defaultSizeGram: 250

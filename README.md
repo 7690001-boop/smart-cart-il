@@ -82,3 +82,6 @@ Set in `.env` or cloud env vars:
 - `ADMIN_EMAILS` (e.g. `you@gmail.com`)
 
 Then use `/login` page to sign in with Gmail.
+
+To grant admin power to a specific user, add their Gmail to:
+- `ADMIN_EMAILS` (comma-separated), e.g. `ADMIN_EMAILS="you@gmail.com,ops@gmail.com"`

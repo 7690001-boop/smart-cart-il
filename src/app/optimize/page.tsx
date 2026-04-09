@@ -50,7 +50,8 @@ export default function OptimizePage() {
               const product = canonicalProducts.find((cp) => cp.id === line.canonicalProductId);
               return (
                 <li key={line.itemId} className="rounded bg-slate-50 p-2">
-                  {product?.name} x{line.quantity} = {fmt(line.linePriceAgorot)}
+                  {(product?.nameHe ?? product?.name) ?? "מוצר"} x{line.quantity} ={" "}
+                  {fmt(line.linePriceAgorot)}
                 </li>
               );
             })}

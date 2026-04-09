@@ -27,9 +27,16 @@ export default function AuthMenu() {
         {session.user.email}
         {session.user.isAdmin ? " (מנהל)" : ""}
       </span>
-      <Link href="/admin/clusters" className="text-xs underline">
-        ניהול
-      </Link>
+      {session.user.isAdmin ? (
+        <>
+          <Link href="/admin/clusters" className="text-xs underline">
+            ניהול התאמות
+          </Link>
+          <Link href="/admin/import-status" className="text-xs underline">
+            סטטוס ייבוא
+          </Link>
+        </>
+      ) : null}
       <button
         onClick={() => signOut({ callbackUrl: "/" })}
         className="rounded border px-2 py-1 text-xs"

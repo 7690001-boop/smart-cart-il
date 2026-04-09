@@ -1,12 +1,5 @@
 import { canonicalProducts, shoppingLists } from "@/lib/data";
 
-const hebrewNames: Record<string, string> = {
-  cp1: "חלב 3%",
-  cp2: "ביצים L 12",
-  cp3: "לחם לבן",
-  cp4: "קוטג' 5%"
-};
-
 export default function ListsPage() {
   const list = shoppingLists[0];
   return (
@@ -19,7 +12,7 @@ export default function ListsPage() {
             const product = canonicalProducts.find((p) => p.id === item.canonicalProductId);
             return (
               <li key={item.id} className="rounded bg-slate-50 p-2">
-                <div>{hebrewNames[item.canonicalProductId] ?? product?.name ?? item.canonicalProductId}</div>
+                <div>{product?.nameHe ?? product?.name ?? item.canonicalProductId}</div>
                 <div className="text-slate-600">
                   כמות: {item.quantity} | מותג:{" "}
                   {item.preferences.brand === "strict" ? "מותג קבוע" : "גמיש"} | כשרות:{" "}
