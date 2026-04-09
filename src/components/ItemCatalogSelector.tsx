@@ -8,9 +8,17 @@ type CatalogItem = {
   category: string;
   brand?: string;
   defaultSizeGram: number;
+  cheapestPriceAgorot: number | null;
+  cheapestStoreNameHe: string | null;
+  offersCount: number;
 };
 
 const storageKey = "smart-cart-selected-items";
+
+function formatIls(agorot: number | null) {
+  if (agorot === null) return "אין מחיר";
+  return `₪ ${(agorot / 100).toFixed(2)}`;
+}
 
 export default function ItemCatalogSelector() {
   const [items, setItems] = useState<CatalogItem[]>([]);
@@ -72,6 +80,11 @@ export default function ItemCatalogSelector() {
                 <span className="text-sm text-slate-600">
                   קטגוריה: {item.category} | מותג: {item.brand ?? "ללא"} | גודל:{" "}
                   {item.defaultSizeGram} גרם
+                </span>
+                <span className="block text-sm text-slate-700">
+                  מחיר זול: {formatIls(item.cheapestPriceAgorot)}{" "}
+                  {item.cheapestStoreNameHe ? `(${item.cheapestStoreNameHe})` : ""} | הצעות:{" "}
+                  {item.offersCount}
                 </span>
               </span>
             </label>

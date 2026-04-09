@@ -93,3 +93,23 @@ model JobExecution {
   updatedAt      DateTime @updatedAt
   createdAt      DateTime @default(now())
 }
+
+model RetailSource {
+  id         String   @id @default(cuid())
+  sourceKey  String   @unique
+  nameHe     String
+  nameEn     String?
+  storeId    String
+  feedUrl    String
+  authHint   String?
+  linkHash   String
+  isActive   Boolean  @default(true)
+  discoveredFrom String
+  lastSeenAt DateTime
+  syncCadenceMinutes Int @default(180)
+  lastCatalogSyncAt DateTime?
+  lastCatalogStatus String?
+  lastCatalogError String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}

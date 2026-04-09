@@ -1,6 +1,11 @@
 import { upsertFromCentralFeed } from "@/lib/ingestion/centralFeed";
 import { appendIngestionRun } from "@/lib/ingestion/history";
-import { fetchOfficialSourceItems, getOfficialRetailSources } from "@/lib/ingestion/officialRetailSources";
+import {
+  fetchOfficialSourceItems,
+  getDueOfficialRetailSources,
+  getOfficialRetailSources,
+  updateRetailSourceCatalogSyncStatus
+} from "@/lib/ingestion/officialRetailSources";
 import { GovernmentCatalogItem, IngestionRunRecord } from "@/lib/types";
 import { log } from "@/lib/observability/logger";
 
@@ -16,6 +21,7 @@ function dedupeItems(items: GovernmentCatalogItem[]) {
 export async function syncOfficialRetailSources(context?: {
   correlationId?: string;
   idempotencyKey?: string;
+  onlyDue?: boolean;
 }) {
   const run: IngestionRunRecord = {
     id: `ing-official-${Date.now()}`,
@@ -30,19 +36,30 @@ export async function syncOfficialRetailSources(context?: {
   };
 
   try {
-    const sources = getOfficialRetailSources();
+    const sources = context?.onlyDue
+      ? await getDueOfficialRetailSources()
+      : await getOfficialRetailSources();
     const allItems: GovernmentCatalogItem[] = [];
 
     for (const source of sources) {
       try {
         const items = await fetchOfficialSourceItems(source);
         allItems.push(...items);
+        await updateRetailSourceCatalogSyncStatus({
+          sourceKey: source.id,
+          status: "success"
+        });
         run.sourceDetails?.push({
           sourceName: source.nameHe,
           fetchedItems: items.length,
           status: "success"
         });
       } catch (error) {
+        await updateRetailSourceCatalogSyncStatus({
+          sourceKey: source.id,
+          status: "failed",
+          errorMessage: error instanceof Error ? error.message : "source sync failed"
+        });
         run.sourceDetails?.push({
           sourceName: source.nameHe,
           fetchedItems: 0,

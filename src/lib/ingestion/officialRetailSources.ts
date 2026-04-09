@@ -1,4 +1,5 @@
 import { GovernmentCatalogItem } from "@/lib/types";
+import { prisma } from "@/lib/db";
 
 type FeedFormat = "json";
 
@@ -63,7 +64,22 @@ function parseJsonFeed(payload: unknown, storeId: string) {
   return mapped;
 }
 
-export function getOfficialRetailSources() {
+export async function getOfficialRetailSources() {
+  const dbSources = await prisma.retailSource.findMany({
+    where: { isActive: true },
+    orderBy: { updatedAt: "desc" }
+  });
+  if (dbSources.length > 0) {
+    return dbSources.map((s) => ({
+      id: s.sourceKey,
+      nameHe: s.nameHe,
+      nameEn: s.nameEn ?? s.nameHe,
+      storeId: s.storeId,
+      feedUrl: s.feedUrl,
+      format: "json" as const
+    }));
+  }
+
   const overridesRaw = process.env.OFFICIAL_RETAIL_SOURCES_JSON;
   if (!overridesRaw) return defaultOfficialSources;
 
@@ -73,6 +89,42 @@ export function getOfficialRetailSources() {
   } catch {
     return defaultOfficialSources;
   }
+}
+
+export async function getDueOfficialRetailSources(now = new Date()) {
+  const active = await prisma.retailSource.findMany({
+    where: { isActive: true },
+    orderBy: { updatedAt: "desc" }
+  });
+  return active
+    .filter((s) => {
+      if (!s.lastCatalogSyncAt) return true;
+      const nextTs = s.lastCatalogSyncAt.getTime() + s.syncCadenceMinutes * 60_000;
+      return nextTs <= now.getTime();
+    })
+    .map((s) => ({
+      id: s.sourceKey,
+      nameHe: s.nameHe,
+      nameEn: s.nameEn ?? s.nameHe,
+      storeId: s.storeId,
+      feedUrl: s.feedUrl,
+      format: "json" as const
+    }));
+}
+
+export async function updateRetailSourceCatalogSyncStatus(params: {
+  sourceKey: string;
+  status: "success" | "failed";
+  errorMessage?: string;
+}) {
+  await prisma.retailSource.update({
+    where: { sourceKey: params.sourceKey },
+    data: {
+      lastCatalogSyncAt: new Date(),
+      lastCatalogStatus: params.status,
+      lastCatalogError: params.errorMessage ?? null
+    }
+  });
 }
 
 export async function fetchOfficialSourceItems(source: OfficialRetailSource) {
