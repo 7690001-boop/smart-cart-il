@@ -3,6 +3,11 @@ import GoogleProvider from "next-auth/providers/google";
 import { isAdminEmail } from "@/lib/admin";
 
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET,
+  pages: {
+    signIn: "/login",
+    error: "/login"
+  },
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
