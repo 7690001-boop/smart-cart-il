@@ -48,6 +48,33 @@ export async function POST(
   return NextResponse.json(item, { status: 201 });
 }
 
+const patchSchema = z.object({
+  itemId: z.string().min(1),
+  quantity: z.number().int().positive().optional(),
+  brand: z.enum(["strict", "flexible"]).optional(),
+  kosherRequired: z.boolean().optional()
+});
+
+export async function PATCH(request: Request, { params }: { params: Promise<{ listId: string }> }) {
+  const user = await requireDbUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { listId } = await params;
+  const body = patchSchema.safeParse(await request.json());
+  if (!body.success) return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+
+  const list = await prisma.shoppingList.findFirst({
+    where: { id: listId, userId: user.id }
+  });
+  if (!list) return NextResponse.json({ error: "List not found" }, { status: 404 });
+
+  const { itemId, ...updates } = body.data;
+  const item = await prisma.shoppingListItem.updateMany({
+    where: { id: itemId, listId },
+    data: updates
+  });
+  return NextResponse.json(item);
+}
+
 const deleteSchema = z.object({
   itemId: z.string().min(1)
 });

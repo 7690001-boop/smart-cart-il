@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Preferences = {
   maxDistanceKm: number;
@@ -13,11 +13,138 @@ type Preferences = {
   notes?: string | null;
 };
 
+type GeoResult = {
+  displayName: string;
+  latitude: number;
+  longitude: number;
+};
+
 function splitCsv(value: string) {
   return value
     .split(",")
     .map((v) => v.trim())
     .filter(Boolean);
+}
+
+function LocationPicker({
+  latitude,
+  longitude,
+  onChange
+}: {
+  latitude: number | null | undefined;
+  longitude: number | null | undefined;
+  onChange: (lat: number, lon: number) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<GeoResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [geoError, setGeoError] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const hasLocation = latitude != null && longitude != null;
+
+  function handleQueryChange(value: string) {
+    setQuery(value);
+    setGeoError("");
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!value.trim()) {
+      setResults([]);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(`/api/geocode?q=${encodeURIComponent(value)}`);
+        const data = (await res.json()) as GeoResult[];
+        setResults(Array.isArray(data) ? data : []);
+      } catch {
+        setResults([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 500);
+  }
+
+  function pick(r: GeoResult) {
+    onChange(r.latitude, r.longitude);
+    setQuery(r.displayName);
+    setResults([]);
+  }
+
+  function useCurrentLocation() {
+    if (!navigator.geolocation) {
+      setGeoError("הדפדפן אינו תומך באיתור מיקום");
+      return;
+    }
+    setLocating(true);
+    setGeoError("");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        onChange(pos.coords.latitude, pos.coords.longitude);
+        setQuery(`${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`);
+        setResults([]);
+        setLocating(false);
+      },
+      () => {
+        setGeoError("לא ניתן לאתר מיקום. אנא אפשר גישה למיקום בדפדפן.");
+        setLocating(false);
+      }
+    );
+  }
+
+  return (
+    <div className="space-y-2 text-sm">
+      <div className="font-medium text-slate-700">מיקום ביתי</div>
+
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            placeholder="הכנס כתובת לחיפוש..."
+            className="w-full rounded border p-2 text-sm"
+            value={query}
+            onChange={(e) => handleQueryChange(e.target.value)}
+            dir="rtl"
+          />
+          {searching && (
+            <span className="absolute left-2 top-2.5 text-xs text-slate-400">מחפש...</span>
+          )}
+          {results.length > 0 && (
+            <ul className="absolute z-10 mt-1 w-full rounded border bg-white shadow-md">
+              {results.map((r, i) => (
+                <li key={i}>
+                  <button
+                    type="button"
+                    className="w-full px-3 py-2 text-right text-xs hover:bg-slate-50"
+                    onClick={() => pick(r)}
+                  >
+                    {r.displayName}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={useCurrentLocation}
+          disabled={locating}
+          className="whitespace-nowrap rounded border border-slate-300 px-3 py-2 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+        >
+          {locating ? "מאתר..." : "מיקום נוכחי"}
+        </button>
+      </div>
+
+      {geoError && <p className="text-xs text-red-600">{geoError}</p>}
+
+      {hasLocation && (
+        <p className="text-xs text-slate-500">
+          {latitude!.toFixed(5)}, {longitude!.toFixed(5)}
+        </p>
+      )}
+    </div>
+  );
 }
 
 export default function PreferencesClient() {
@@ -60,6 +187,12 @@ export default function PreferencesClient() {
 
   return (
     <div className="space-y-3 rounded border bg-white p-4">
+      <LocationPicker
+        latitude={prefs.homeLatitude}
+        longitude={prefs.homeLongitude}
+        onChange={(lat, lon) => setPrefs({ ...prefs, homeLatitude: lat, homeLongitude: lon })}
+      />
+
       <label className="block text-sm">
         מרחק מקסימלי (ק״מ)
         <input
@@ -71,44 +204,6 @@ export default function PreferencesClient() {
           onChange={(e) => setPrefs({ ...prefs, maxDistanceKm: Number(e.target.value) || 0 })}
         />
       </label>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <label className="block text-sm">
-          קו רוחב ביתי (Latitude)
-          <input
-            type="number"
-            step="0.000001"
-            min={-90}
-            max={90}
-            className="mt-1 w-full rounded border p-2"
-            value={prefs.homeLatitude ?? ""}
-            onChange={(e) =>
-              setPrefs({
-                ...prefs,
-                homeLatitude: e.target.value.trim() === "" ? null : Number(e.target.value)
-              })
-            }
-          />
-        </label>
-
-        <label className="block text-sm">
-          קו אורך ביתי (Longitude)
-          <input
-            type="number"
-            step="0.000001"
-            min={-180}
-            max={180}
-            className="mt-1 w-full rounded border p-2"
-            value={prefs.homeLongitude ?? ""}
-            onChange={(e) =>
-              setPrefs({
-                ...prefs,
-                homeLongitude: e.target.value.trim() === "" ? null : Number(e.target.value)
-              })
-            }
-          />
-        </label>
-      </div>
 
       <label className="flex items-center gap-2 text-sm">
         <input
