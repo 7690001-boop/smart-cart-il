@@ -2,10 +2,12 @@ import { GovernmentCatalogItem } from "@/lib/types";
 import { prisma } from "@/lib/db";
 import {
   fetchAndParseCpftaFeed,
-  getLatestPriceFullUrlFromListingPage
+  getLatestPriceFullUrlFromListingPage,
+  getLatestPriceFullUrlFromCarrefourPage,
+  getLatestPriceFullUrlFromWoltIndex,
 } from "@/lib/ingestion/cpftaXmlParser";
 
-type FeedFormat = "json" | "cpfta-xml-listing";
+type FeedFormat = "json" | "cpfta-xml-listing" | "carrefour-listing" | "wolt-listing";
 
 export type OfficialRetailSource = {
   id: string;
@@ -24,6 +26,22 @@ const defaultOfficialSources: OfficialRetailSource[] = [
     storeId: "shufersal",
     feedUrl: "https://prices.shufersal.co.il/FileObject/UpdateCategory?catID=2&storeId=0&sort=Time&sortdir=DESC",
     format: "cpfta-xml-listing"
+  },
+  {
+    id: "carrefour",
+    nameHe: "קרפור",
+    nameEn: "Carrefour",
+    storeId: "carrefour",
+    feedUrl: "https://prices.carrefour.co.il/",
+    format: "carrefour-listing"
+  },
+  {
+    id: "wolt",
+    nameHe: "וולט",
+    nameEn: "Wolt",
+    storeId: "wolt",
+    feedUrl: "https://wm-gateway.wolt.com/isr-prices/public/v1/index.html",
+    format: "wolt-listing"
   }
 ];
 
@@ -85,7 +103,12 @@ export async function getOfficialRetailSources() {
       nameEn: s.nameEn ?? s.nameHe,
       storeId: s.storeId,
       feedUrl: s.feedUrl,
-      format: (s.authHint === "cpfta-xml-listing" ? "cpfta-xml-listing" : "json") as FeedFormat
+      format: (
+        s.authHint === "cpfta-xml-listing" ? "cpfta-xml-listing" :
+        s.authHint === "carrefour-listing" ? "carrefour-listing" :
+        s.authHint === "wolt-listing" ? "wolt-listing" :
+        "json"
+      ) as FeedFormat
     }));
   }
 
@@ -142,6 +165,18 @@ export async function fetchOfficialSourceItems(source: OfficialRetailSource) {
   if (source.format === "cpfta-xml-listing") {
     const fileUrl = await getLatestPriceFullUrlFromListingPage(source.feedUrl);
     if (!fileUrl) throw new Error(`No CPFTA file found at listing page for ${source.nameEn}`);
+    return fetchAndParseCpftaFeed(fileUrl);
+  }
+
+  if (source.format === "carrefour-listing") {
+    const fileUrl = await getLatestPriceFullUrlFromCarrefourPage(source.feedUrl);
+    if (!fileUrl) throw new Error(`No Carrefour file found for ${source.nameEn}`);
+    return fetchAndParseCpftaFeed(fileUrl);
+  }
+
+  if (source.format === "wolt-listing") {
+    const fileUrl = await getLatestPriceFullUrlFromWoltIndex(source.feedUrl);
+    if (!fileUrl) throw new Error(`No Wolt file found for ${source.nameEn}`);
     return fetchAndParseCpftaFeed(fileUrl);
   }
 
