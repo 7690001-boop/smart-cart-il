@@ -14,7 +14,10 @@ export function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/api/ingestion")
   ) {
     const ingestionKey = process.env.INGESTION_API_KEY;
-    if (ingestionKey && request.headers.get("x-api-key") !== ingestionKey) {
+    const cronSecret = process.env.CRON_SECRET;
+    const isVercelCron = cronSecret && request.headers.get("authorization") === `Bearer ${cronSecret}`;
+    const hasValidApiKey = ingestionKey && request.headers.get("x-api-key") === ingestionKey;
+    if (ingestionKey && !hasValidApiKey && !isVercelCron) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }

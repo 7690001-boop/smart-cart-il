@@ -140,7 +140,12 @@ export async function getDueOfficialRetailSources(now = new Date()) {
       nameEn: s.nameEn ?? s.nameHe,
       storeId: s.storeId,
       feedUrl: s.feedUrl,
-      format: "json" as const
+      format: (
+        s.authHint === "cpfta-xml-listing" ? "cpfta-xml-listing" :
+        s.authHint === "carrefour-listing" ? "carrefour-listing" :
+        s.authHint === "wolt-listing" ? "wolt-listing" :
+        "json"
+      ) as FeedFormat
     }));
 }
 
