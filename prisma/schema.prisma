@@ -7,144 +7,124 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Core user models ───────────────────────────────────────────────
+
 model User {
-  id      String         @id @default(cuid())
-  email   String         @unique
-  name    String
-  lists   ShoppingList[]
+  id          String                @id @default(cuid())
+  email       String                @unique
+  name        String
+  lists       ShoppingList[]
   preferences UserPreferenceProfile?
 }
 
-model Store {
-  id    String     @id @default(cuid())
-  name  String
-  skus  StoreSku[]
+model UserPreferenceProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  excludedChains String[]
+  updatedAt      DateTime @updatedAt
+  createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id])
 }
 
-model CanonicalProduct {
-  id                String     @id @default(cuid())
-  name              String
-  category          String
-  brand             String?
-  kosherAuthorities String[]
-  premium           Boolean
-  defaultSizeGram   Int
-  skus              StoreSku[]
-}
-
-model StoreSku {
-  id                 String           @id @default(cuid())
-  storeId            String
-  canonicalProductId String
-  skuName            String
-  brand              String?
-  sizeGram           Int
-  kosherAuthorities  String[]
-  premium            Boolean
-  priceAgorot        Int
-  updatedAt          DateTime
-  store              Store            @relation(fields: [storeId], references: [id])
-  canonicalProduct   CanonicalProduct @relation(fields: [canonicalProductId], references: [id])
-}
+// ─── Shopping list ──────────────────────────────────────────────────
 
 model ShoppingList {
-  id      String             @id @default(cuid())
-  userId  String
-  name    String
-  user    User               @relation(fields: [userId], references: [id])
-  items   ShoppingListItem[]
+  id     String             @id @default(cuid())
+  userId String
+  name   String
+  user   User               @relation(fields: [userId], references: [id])
+  items  ShoppingListItem[]
 }
 
 model ShoppingListItem {
-  id                String       @id @default(cuid())
-  listId            String
-  canonicalProductId String
-  quantity          Int
-  brand             String
-  kosherRequired    Boolean
-  kosherAuthorities String[]
-  premiumOnly       Boolean
-  packageTolerance  Float
-  replaceable       Boolean
-  list              ShoppingList @relation(fields: [listId], references: [id])
+  id              String       @id @default(cuid())
+  listId          String
+  productId       String
+  quantity        Int
+  kosherRequired  Boolean      @default(false)
+  brandPreference String       @default("any") // "any" | "flexible" | "strict"
+  list            ShoppingList @relation(fields: [listId], references: [id])
+  product         Product      @relation(fields: [productId], references: [id])
 }
 
-model UserPreferenceProfile {
-  id               String   @id @default(cuid())
-  userId           String   @unique
-  maxDistanceKm    Int      @default(15)
-  homeLatitude     Float?
-  homeLongitude    Float?
-  allowSplitStore  Boolean  @default(false)
-  preferredKosher  String[]
-  preferredBrands  String[]
-  excludedStores   String[]
-  notes            String?
-  updatedAt        DateTime @updatedAt
-  createdAt        DateTime @default(now())
-  user             User     @relation(fields: [userId], references: [id])
+// ─── Product catalog (built from CPFTA feeds) ───────────────────────
+
+model Chain {
+  id      String  @id @default(cuid())
+  chainId String  @unique // CPFTA chain identifier, e.g. "7290027600007"
+  nameHe  String
+  nameEn  String?
+  logoUrl String?
+  prices  Price[]
+}
+
+model Product {
+  id             String             @id @default(cuid())
+  barcode        String?            @unique // NULL for barcode-less products (produce, bakery, deli)
+  normalizedName String             // always present, used as fallback key
+  nameHe         String             // best known Hebrew display name
+  brand          String?
+  category       String?
+  unitQuantity   Float?
+  unitType       String?
+  imageUrl       String?
+  updatedAt      DateTime           @updatedAt
+  prices         Price[]
+  listItems      ShoppingListItem[]
+
+  @@index([normalizedName])
+}
+
+model Price {
+  id          String   @id @default(cuid())
+  chainId     String
+  productId   String
+  priceAgorot Int
+  fetchedAt   DateTime @default(now())
+  chain       Chain    @relation(fields: [chainId], references: [id])
+  product     Product  @relation(fields: [productId], references: [id])
+
+  @@unique([chainId, productId])
+  @@index([productId])
+}
+
+// ─── Ingestion infrastructure ───────────────────────────────────────
+
+model RetailSource {
+  id                  String   @id @default(cuid())
+  sourceKey           String   @unique
+  nameHe              String
+  nameEn              String?
+  chainId             String   // CPFTA chain ID (maps to Chain.chainId)
+  feedUrl             String
+  authHint            String?  // feed format hint, e.g. "cpfta-xml-listing"
+  linkHash            String
+  isActive            Boolean  @default(true)
+  discoveredFrom      String
+  lastSeenAt          DateTime
+  syncCadenceMinutes  Int      @default(180)
+  lastCatalogSyncAt   DateTime?
+  lastCatalogStatus   String?
+  lastCatalogError    String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model IngestionRun {
-  id           String   @id
-  source       String
-  startedAt    DateTime
-  finishedAt   DateTime?
-  status       String
-  fetchedItems Int
-  ingestedRows Int
-  errorMessage String?
-  sourceDetails Json?
-  correlationId String?
-  idempotencyKey String?
-  createdAt    DateTime @default(now())
-}
-
-model JobExecution {
-  id            String   @id
-  jobName        String
-  idempotencyKey String   @unique
-  status         String
-  attempts       Int      @default(1)
-  lastError      String?
-  updatedAt      DateTime @updatedAt
-  createdAt      DateTime @default(now())
-}
-
-model RetailSource {
-  id         String   @id @default(cuid())
-  sourceKey  String   @unique
-  nameHe     String
-  nameEn     String?
-  storeId    String
-  feedUrl    String
-  authHint   String?
-  linkHash   String
-  isActive   Boolean  @default(true)
-  discoveredFrom String
-  lastSeenAt DateTime
-  syncCadenceMinutes Int @default(180)
-  lastCatalogSyncAt DateTime?
-  lastCatalogStatus String?
-  lastCatalogError String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
-
-model RetailOffer {
-  id             String   @id @default(cuid())
-  sourceKey      String
-  storeId        String
-  productName    String
-  normalizedName String
-  category       String?
-  brand          String?
-  barcode        String?
-  imageUrl       String?
-  priceAgorot    Int
-  fetchedAt      DateTime @default(now())
-
-  @@index([normalizedName])
-  @@index([storeId, normalizedName])
-  @@index([sourceKey, fetchedAt])
+  id                String   @id
+  source            String
+  startedAt         DateTime
+  finishedAt        DateTime?
+  status            String
+  fetchedItems      Int
+  ingestedRows      Int
+  itemsWithBarcode  Int      @default(0)
+  itemsWithoutBarcode Int    @default(0)
+  newProducts       Int      @default(0)
+  updatedProducts   Int      @default(0)
+  errorMessage      String?
+  sourceDetails     Json?
+  correlationId     String?
+  idempotencyKey    String?
+  createdAt         DateTime @default(now())
 }

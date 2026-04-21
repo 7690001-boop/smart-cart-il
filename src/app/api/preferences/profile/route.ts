@@ -11,7 +11,7 @@ const updateSchema = z.object({
   preferredKosher: z.array(z.string()).max(20),
   preferredBrands: z.array(z.string()).max(50),
   excludedStores: z.array(z.string()).max(50),
-  notes: z.string().max(2000).optional()
+  notes: z.string().max(2000).nullable().optional()
 });
 
 export async function GET() {
