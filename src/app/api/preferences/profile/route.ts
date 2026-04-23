@@ -4,14 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireDbUser } from "@/lib/sessionUser";
 
 const updateSchema = z.object({
-  maxDistanceKm: z.number().int().min(0).max(200),
-  homeLatitude: z.number().min(-90).max(90).nullable().optional(),
-  homeLongitude: z.number().min(-180).max(180).nullable().optional(),
-  allowSplitStore: z.boolean(),
-  preferredKosher: z.array(z.string()).max(20),
-  preferredBrands: z.array(z.string()).max(50),
-  excludedStores: z.array(z.string()).max(50),
-  notes: z.string().max(2000).nullable().optional()
+  excludedChains: z.array(z.string()).max(50).optional()
 });
 
 export async function GET() {
@@ -21,9 +14,7 @@ export async function GET() {
   const profile = await prisma.userPreferenceProfile.upsert({
     where: { userId: user.id },
     update: {},
-    create: {
-      userId: user.id
-    }
+    create: { userId: user.id }
   });
   return NextResponse.json(profile);
 }
@@ -37,10 +28,7 @@ export async function PATCH(request: Request) {
   const profile = await prisma.userPreferenceProfile.upsert({
     where: { userId: user.id },
     update: body.data,
-    create: {
-      userId: user.id,
-      ...body.data
-    }
+    create: { userId: user.id, ...body.data }
   });
   return NextResponse.json(profile);
 }

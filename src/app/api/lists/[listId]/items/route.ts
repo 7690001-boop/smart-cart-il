@@ -35,14 +35,10 @@ export async function POST(
   const item = await prisma.shoppingListItem.create({
     data: {
       listId,
-      canonicalProductId: body.data.canonicalProductId,
+      productId: body.data.canonicalProductId,
       quantity: body.data.quantity,
-      brand: body.data.preferences.brand,
-      kosherRequired: body.data.preferences.kosherRequired,
-      kosherAuthorities: body.data.preferences.kosherAuthorities ?? [],
-      premiumOnly: body.data.preferences.premiumOnly,
-      packageTolerance: body.data.preferences.packageSizeTolerancePercent,
-      replaceable: body.data.preferences.replaceable
+      brandPreference: body.data.preferences.brand,
+      kosherRequired: body.data.preferences.kosherRequired
     }
   });
   return NextResponse.json(item, { status: 201 });
@@ -51,7 +47,7 @@ export async function POST(
 const patchSchema = z.object({
   itemId: z.string().min(1),
   quantity: z.number().int().positive().optional(),
-  brand: z.enum(["strict", "flexible"]).optional(),
+  brandPreference: z.enum(["strict", "flexible", "any"]).optional(),
   kosherRequired: z.boolean().optional()
 });
 

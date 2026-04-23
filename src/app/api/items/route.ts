@@ -22,57 +22,34 @@ function translateBrandHe(brand?: string | null) {
 }
 
 export async function GET() {
-  const offers = await prisma.retailOffer.findMany({
-    orderBy: { fetchedAt: "desc" },
+  const products = await prisma.product.findMany({
+    include: {
+      prices: {
+        include: { chain: true },
+        orderBy: { priceAgorot: "asc" }
+      }
+    },
     take: 5000
   });
 
-  if (offers.length > 0) {
-    const grouped = new Map<
-      string,
-      {
-        id: string;
-        name: string;
-        nameHe: string;
-        category: string;
-        categoryHe: string;
-        brand?: string;
-        brandHe?: string;
-        defaultSizeGram: number;
-        cheapestPriceAgorot: number | null;
-        cheapestStoreNameHe: string | null;
-        offersCount: number;
-      }
-    >();
-
-    for (const offer of offers) {
-      const key = offer.barcode ?? offer.normalizedName;
-      const existing = grouped.get(key);
-      const currentPrice = offer.priceAgorot;
-      const store = stores.find((s) => s.id === offer.storeId);
-      if (!existing) {
-        grouped.set(key, {
-          id: key,
-          name: offer.productName,
-          nameHe: offer.productName,
-          category: offer.category ?? "General",
-          categoryHe: translateCategoryHe(offer.category),
-          brand: offer.brand ?? undefined,
-          brandHe: translateBrandHe(offer.brand),
-          defaultSizeGram: 0,
-          cheapestPriceAgorot: currentPrice,
-          cheapestStoreNameHe: store?.nameHe ?? null,
-          offersCount: 1
-        });
-      } else {
-        existing.offersCount += 1;
-        if ((existing.cheapestPriceAgorot ?? Number.POSITIVE_INFINITY) > currentPrice) {
-          existing.cheapestPriceAgorot = currentPrice;
-          existing.cheapestStoreNameHe = store?.nameHe ?? null;
-        }
-      }
-    }
-    return NextResponse.json([...grouped.values()]);
+  if (products.length > 0) {
+    const result = products.map((product) => {
+      const cheapest = product.prices[0] ?? null;
+      return {
+        id: product.barcode ?? product.normalizedName,
+        name: product.nameHe,
+        nameHe: product.nameHe,
+        category: product.category ?? "General",
+        categoryHe: translateCategoryHe(product.category),
+        brand: product.brand ?? undefined,
+        brandHe: translateBrandHe(product.brand),
+        defaultSizeGram: 0,
+        cheapestPriceAgorot: cheapest?.priceAgorot ?? null,
+        cheapestStoreNameHe: cheapest?.chain.nameHe ?? null,
+        offersCount: product.prices.length
+      };
+    });
+    return NextResponse.json(result);
   }
 
   const enriched = canonicalProducts.map((product) => {

@@ -1,38 +1,38 @@
 import { prisma } from "@/lib/db";
 
 export async function ensureJobNotProcessed(jobName: string, idempotencyKey: string) {
-  const existing = await prisma.jobExecution.findUnique({
+  const existing = await prisma.ingestionRun.findFirst({
     where: { idempotencyKey }
   });
-  if (existing?.status === "success") {
-    return false;
-  }
+  if (existing?.status === "success") return false;
 
   if (!existing) {
-    await prisma.jobExecution.create({
+    await prisma.ingestionRun.create({
       data: {
         id: `${jobName}-${Date.now()}`,
-        jobName,
+        source: jobName,
         idempotencyKey,
-        status: "running"
+        status: "running",
+        startedAt: new Date(),
+        fetchedItems: 0,
+        ingestedRows: 0
       }
     });
     return true;
   }
 
-  await prisma.jobExecution.update({
-    where: { idempotencyKey },
-    data: { status: "running", attempts: existing.attempts + 1 }
+  await prisma.ingestionRun.update({
+    where: { id: existing.id },
+    data: { status: "running" }
   });
   return true;
 }
 
 export async function markJobFinished(idempotencyKey: string, status: "success" | "failed", lastError?: string) {
-  await prisma.jobExecution.update({
-    where: { idempotencyKey },
-    data: {
-      status,
-      lastError
-    }
+  const existing = await prisma.ingestionRun.findFirst({ where: { idempotencyKey } });
+  if (!existing) return;
+  await prisma.ingestionRun.update({
+    where: { id: existing.id },
+    data: { status, finishedAt: new Date(), errorMessage: lastError ?? null }
   });
 }

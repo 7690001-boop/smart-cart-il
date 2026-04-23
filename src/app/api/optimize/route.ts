@@ -60,26 +60,24 @@ export async function POST(request: Request) {
   const profile = await prisma.userPreferenceProfile.findUnique({
     where: { userId: user.id }
   });
+
   const effectiveFilters = {
-    maxDistanceKm:
-      body.data.options?.storePreferences?.maxDistanceKm ?? profile?.maxDistanceKm ?? 15,
-    whitelistStoreIds: body.data.options?.storePreferences?.whitelistStoreIds ?? [],
-    blacklistStoreIds: [
+    maxDistanceKm: body.data.options?.storePreferences?.maxDistanceKm ?? 15,
+    whitelistChainIds: body.data.options?.storePreferences?.whitelistStoreIds ?? [],
+    blacklistChainIds: [
       ...(body.data.options?.storePreferences?.blacklistStoreIds ?? []),
-      ...(profile?.excludedStores ?? [])
+      ...(profile?.excludedChains ?? [])
     ]
   };
-  const effectiveUserLocation =
-    body.data.options?.userLocation ??
-    (profile?.homeLatitude != null && profile.homeLongitude != null
-      ? { latitude: profile.homeLatitude, longitude: profile.homeLongitude }
-      : undefined);
+  const effectiveUserLocation = body.data.options?.userLocation;
 
-  const offers = await prisma.retailOffer.findMany({
-    orderBy: { fetchedAt: "desc" },
-    take: 20000
+  const productIds = list.items.map((item) => item.productId);
+  const prices = await prisma.price.findMany({
+    where: { productId: { in: productIds } },
+    include: { chain: true }
   });
-  if (offers.length === 0) {
+
+  if (prices.length === 0) {
     return NextResponse.json({
       listId: list.id,
       recommended: null,
@@ -89,34 +87,17 @@ export async function POST(request: Request) {
     });
   }
 
-  const sourceNames = await prisma.retailSource.findMany({
-    where: { isActive: true },
-    select: { sourceKey: true, nameHe: true }
-  });
-  const sourceNameByKey = new Map(sourceNames.map((s) => [s.sourceKey, s.nameHe]));
-
-  const itemMatches = new Map<string, typeof offers>();
-  for (const item of list.items) {
-    itemMatches.set(
-      item.id,
-      offers.filter(
-        (o) =>
-          o.barcode === item.canonicalProductId || o.normalizedName === item.canonicalProductId
-      )
-    );
-  }
-
-  const allStores = [...new Set(offers.map((o) => o.storeId))];
-  const filteredStores = allStores.filter((storeId) => {
-    if (effectiveFilters.blacklistStoreIds.includes(storeId)) return false;
+  const allChainIds = [...new Set(prices.map((p) => p.chainId))];
+  const filteredChainIds = allChainIds.filter((chainId) => {
+    if (effectiveFilters.blacklistChainIds.includes(chainId)) return false;
     if (
-      effectiveFilters.whitelistStoreIds.length > 0 &&
-      !effectiveFilters.whitelistStoreIds.includes(storeId)
+      effectiveFilters.whitelistChainIds.length > 0 &&
+      !effectiveFilters.whitelistChainIds.includes(chainId)
     ) {
       return false;
     }
     if (effectiveUserLocation) {
-      const store = stores.find((s) => s.id === storeId);
+      const store = stores.find((s) => s.id === chainId);
       if (!store) return false;
       const dist = distanceKm(effectiveUserLocation, {
         latitude: store.latitude,
@@ -127,48 +108,39 @@ export async function POST(request: Request) {
     return true;
   });
 
-  const ranked = filteredStores
-    .map((storeId) => {
+  const ranked = filteredChainIds
+    .map((chainId) => {
       let totalAgorot = 0;
       const chosenItems: Array<{
         itemId: string;
-        canonicalProductId: string;
-        storeSkuId: string;
+        productId: string;
+        chainId: string;
         unitPriceAgorot: number;
         quantity: number;
         linePriceAgorot: number;
       }> = [];
 
       for (const item of list.items) {
-        const candidates = (itemMatches.get(item.id) ?? [])
-          .filter((o) => o.storeId === storeId)
+        const candidates = prices
+          .filter((p) => p.productId === item.productId && p.chainId === chainId)
           .sort((a, b) => a.priceAgorot - b.priceAgorot);
         const chosen = candidates[0];
-        if (!chosen) {
-          if (!item.replaceable) return null;
-          continue;
-        }
+        if (!chosen) return null;
         const linePriceAgorot = chosen.priceAgorot * item.quantity;
         totalAgorot += linePriceAgorot;
         chosenItems.push({
           itemId: item.id,
-          canonicalProductId: item.canonicalProductId,
-          storeSkuId: chosen.id,
+          productId: item.productId,
+          chainId: chosen.chainId,
           unitPriceAgorot: chosen.priceAgorot,
           quantity: item.quantity,
           linePriceAgorot
         });
       }
 
-      const exampleOffer = offers.find((o) => o.storeId === storeId);
-      const storeNameHe =
-        (exampleOffer ? sourceNameByKey.get(exampleOffer.sourceKey) : undefined) ?? storeId;
-
+      const chain = prices.find((p) => p.chainId === chainId)?.chain;
       return {
-        store: {
-          id: storeId,
-          nameHe: storeNameHe
-        },
+        store: { id: chainId, nameHe: chain?.nameHe ?? chainId },
         totalAgorot,
         items: chosenItems
       };

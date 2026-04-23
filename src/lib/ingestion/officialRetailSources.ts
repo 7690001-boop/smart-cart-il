@@ -101,7 +101,7 @@ export async function getOfficialRetailSources() {
       id: s.sourceKey,
       nameHe: s.nameHe,
       nameEn: s.nameEn ?? s.nameHe,
-      storeId: s.storeId,
+      storeId: s.chainId,
       feedUrl: s.feedUrl,
       format: (
         s.authHint === "cpfta-xml-listing" ? "cpfta-xml-listing" :
@@ -138,7 +138,7 @@ export async function getDueOfficialRetailSources(now = new Date()) {
       id: s.sourceKey,
       nameHe: s.nameHe,
       nameEn: s.nameEn ?? s.nameHe,
-      storeId: s.storeId,
+      storeId: s.chainId,
       feedUrl: s.feedUrl,
       format: (
         s.authHint === "cpfta-xml-listing" ? "cpfta-xml-listing" :

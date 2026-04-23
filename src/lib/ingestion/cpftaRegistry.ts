@@ -5,7 +5,7 @@ type DiscoveredSource = {
   sourceKey: string;
   nameHe: string;
   nameEn?: string;
-  storeId: string;
+  chainId: string;
   feedUrl: string;
   authHint?: string;
   syncCadenceMinutes?: number;
@@ -57,7 +57,7 @@ function extractSourcesFromSectionHtml(sectionHtml: string): DiscoveredSource[] 
     const networkName = stripTags(cells[0]);
     if (!networkName || networkName.includes("שם הרשת")) continue;
     const infoText = cells[2] ? stripTags(cells[2]) : undefined;
-    const storeId = inferStoreIdByName(networkName);
+    const chainId = inferStoreIdByName(networkName);
     const links = [...cells[1].matchAll(/<a[^>]*href=["']([^"']+)["'][^>]*>/gim)]
       .map((m) => (m[1] ?? "").trim())
       .filter((href) => href.startsWith("http"));
@@ -67,7 +67,7 @@ function extractSourcesFromSectionHtml(sectionHtml: string): DiscoveredSource[] 
       discovered.push({
         sourceKey: normalizeKey(href, linkLabel),
         nameHe: linkLabel,
-        storeId,
+        chainId,
         feedUrl: href,
         authHint: infoText,
         discoveredFrom: "cpfta-json"
@@ -85,18 +85,18 @@ function getOverrideSourcesFromEnv(): DiscoveredSource[] {
     const parsed = JSON.parse(raw) as Array<{
       nameHe: string;
       nameEn?: string;
-      storeId: string;
+      chainId: string;
       feedUrl: string;
       authHint?: string;
       syncCadenceMinutes?: number;
     }>;
     return parsed
-      .filter((v) => v.nameHe && v.storeId && v.feedUrl)
+      .filter((v) => v.nameHe && v.chainId && v.feedUrl)
       .map((v) => ({
         sourceKey: normalizeKey(v.feedUrl, v.nameHe),
         nameHe: v.nameHe,
         nameEn: v.nameEn,
-        storeId: v.storeId,
+        chainId: v.chainId,
         feedUrl: v.feedUrl,
         authHint: v.authHint,
         syncCadenceMinutes: v.syncCadenceMinutes,
@@ -153,7 +153,7 @@ export async function syncCpftaRetailRegistry() {
       JSON.stringify({
         nameHe: source.nameHe,
         nameEn: source.nameEn,
-        storeId: source.storeId,
+        chainId: source.chainId,
         feedUrl: source.feedUrl,
         authHint: source.authHint,
         syncCadenceMinutes
@@ -167,7 +167,7 @@ export async function syncCpftaRetailRegistry() {
           sourceKey: source.sourceKey,
           nameHe: source.nameHe,
           nameEn: source.nameEn,
-          storeId: source.storeId,
+          chainId: source.chainId,
           feedUrl: source.feedUrl,
           authHint: source.authHint,
           linkHash,
@@ -188,7 +188,7 @@ export async function syncCpftaRetailRegistry() {
         data: {
           nameHe: source.nameHe,
           nameEn: source.nameEn,
-          storeId: source.storeId,
+          chainId: source.chainId,
           feedUrl: source.feedUrl,
           authHint: source.authHint,
           linkHash,
