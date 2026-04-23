@@ -14,18 +14,32 @@ export type User = {
   email: string;
   password: string;
   name: string;
+  role: "admin" | "user";
 };
 
 export type Store = {
   id: string;
   name: string;
+  nameHe: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+};
+
+export type UserStoreFilterPreferences = {
+  maxDistanceKm: number;
+  whitelistStoreIds: string[];
+  blacklistStoreIds: string[];
 };
 
 export type CanonicalProduct = {
   id: string;
   name: string;
+  nameHe?: string;
   category: string;
+  categoryHe?: string;
   brand?: string;
+  brandHe?: string;
   kosherAuthorities: string[];
   premium: boolean;
   defaultSizeGram: number;
@@ -65,4 +79,37 @@ export type ClusterReviewItem = {
   confidence: number;
   status: "pending" | "approved" | "rejected";
   reviewedBy?: string;
+};
+
+export type GovernmentCatalogItem = {
+  sourceProductName: string;
+  storeId: string;
+  priceAgorot: number;
+  brand?: string;
+  sizeGram?: number;
+  kosherAuthorities?: string[];
+  premium?: boolean;
+  barcode?: string;
+  imageUrl?: string;
+};
+
+export type IngestionRunStatus = "success" | "failed";
+
+export type IngestionRunRecord = {
+  id: string;
+  source: "government-catalog" | "retailer-web-feeds" | "unified-catalog";
+  startedAt: string;
+  finishedAt?: string;
+  status: IngestionRunStatus;
+  fetchedItems: number;
+  ingestedRows: number;
+  errorMessage?: string;
+  sourceDetails?: Array<{
+    sourceName: string;
+    fetchedItems: number;
+    status: IngestionRunStatus;
+    errorMessage?: string;
+  }>;
+  correlationId?: string;
+  idempotencyKey?: string;
 };

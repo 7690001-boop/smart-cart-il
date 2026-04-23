@@ -1,18 +1,19 @@
 import { NextResponse } from "next/server";
-import { upsertFromCentralFeed } from "@/lib/ingestion/centralFeed";
+import { syncCpftaRetailRegistry } from "@/lib/ingestion/cpftaRegistry";
+import { syncOfficialRetailSources } from "@/lib/ingestion/syncOfficialSources";
 
 export async function GET() {
-  const demoRows = [
-    {
-      sourceProductName: "Tnuva Milk 3% 1L",
-      storeId: "s1",
-      priceAgorot: 665,
-      brand: "Tnuva",
-      sizeGram: 1000,
-      kosherAuthorities: ["Rabanut"],
-      premium: false
-    }
-  ];
-  const result = upsertFromCentralFeed(demoRows);
-  return NextResponse.json({ mode: "demo-cron", ...result });
+  const correlationBase = `cron-legacy-${Date.now()}`;
+  try {
+    const registryRun = await syncCpftaRetailRegistry();
+    const officialRun = await syncOfficialRetailSources({
+      correlationId: `${correlationBase}-official`,
+      idempotencyKey: `cron-legacy-catalog-${new Date().toISOString().slice(0, 13)}`,
+      onlyDue: true
+    });
+    return NextResponse.json({ mode: "scheduled-legacy", registryRun, officialRun });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Cron sync failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

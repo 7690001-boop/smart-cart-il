@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 import { z } from "zod";
+import { authOptions } from "@/auth";
+import { isAdminEmail } from "@/lib/admin";
 import { clusterReviewQueue } from "@/lib/data";
 
 const updateSchema = z.object({
@@ -9,10 +12,18 @@ const updateSchema = z.object({
 });
 
 export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!isAdminEmail(session?.user?.email)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   return NextResponse.json(clusterReviewQueue);
 }
 
 export async function PATCH(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!isAdminEmail(session?.user?.email)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const body = updateSchema.safeParse(await request.json());
   if (!body.success) return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   const item = clusterReviewQueue.find((q) => q.id === body.data.id);

@@ -1,0 +1,23 @@
+name: Registry Sync
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger registry sync
+        env:
+          INGESTION_API_KEY: ${{ secrets.INGESTION_API_KEY }}
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          response=$(curl -s -w "\n%{http_code}" \
+            -H "x-api-key: $INGESTION_API_KEY" \
+            "$APP_URL/api/cron/registry-sync")
+          body=$(echo "$response" | head -n -1)
+          status=$(echo "$response" | tail -n 1)
+          echo "$body"
+          [ "$status" -eq 200 ] || exit 1
