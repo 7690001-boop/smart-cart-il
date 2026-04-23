@@ -1,12 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/registry-sync",
-      "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/cron/catalog-sync",
-      "schedule": "0 */2 * * *"
-    }
-  ]
-}
+{}
