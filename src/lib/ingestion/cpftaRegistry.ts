@@ -167,7 +167,7 @@ export async function syncCpftaRetailRegistry() {
           sourceKey: source.sourceKey,
           nameHe: source.nameHe,
           nameEn: source.nameEn,
-          chainId: source.chainId,
+          storeId: source.chainId,
           feedUrl: source.feedUrl,
           authHint: source.authHint,
           linkHash,
@@ -188,7 +188,7 @@ export async function syncCpftaRetailRegistry() {
         data: {
           nameHe: source.nameHe,
           nameEn: source.nameEn,
-          chainId: source.chainId,
+          storeId: source.chainId,
           feedUrl: source.feedUrl,
           authHint: source.authHint,
           linkHash,

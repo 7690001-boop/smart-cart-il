@@ -12,10 +12,13 @@ const CHAIN_ID_MAP: Record<string, string> = {
   "7290058137834": "mega",
   "7290055700219": "yochananof",
   "7290492000005": "osher-ad",
-  "7290633800006": "AM-PM",
+  "7290633800006": "dor-alon",
   "7290876100000": "super-pharm",
   "7290055700007": "carrefour",
   "7290058249350": "wolt",
+  "7290700100008": "hazi-hinam",
+  "7290873900009": "tiv-taam",
+  "7290785400000": "keshet",
 };
 
 // Chain ID → Hebrew name
@@ -26,10 +29,13 @@ const CHAIN_NAME_HE: Record<string, string> = {
   mega: "מגה",
   yochananof: "יוחננוף",
   "osher-ad": "אושר עד",
-  "AM-PM": "AM:PM",
+  "dor-alon": "דור אלון",
   "super-pharm": "סופר-פארם",
   carrefour: "קרפור",
   wolt: "וולט",
+  "hazi-hinam": "חצי חינם",
+  "tiv-taam": "טיב טעם",
+  keshet: "קשת טעמים",
 };
 
 export function chainIdToStoreKey(chainId: string): string {
@@ -88,7 +94,8 @@ export async function parseCpftaGzipXml(buffer: Buffer): Promise<GovernmentCatal
   return parseItems(xmlContent, chainId);
 }
 
-/** Fetch the Shufersal listing page and extract the most recent PriceFull file URL. */
+/** Fetch a CPFTA listing page and extract the most recent PriceFull .gz file URL.
+ *  Supports both absolute and relative hrefs (url.retail.publishedprices.co.il uses relative). */
 export async function getLatestPriceFullUrlFromListingPage(listingPageUrl: string): Promise<string | null> {
   const res = await fetch(listingPageUrl, {
     headers: { "X-Requested-With": "XMLHttpRequest" },
@@ -97,11 +104,35 @@ export async function getLatestPriceFullUrlFromListingPage(listingPageUrl: strin
   if (!res.ok) return null;
 
   const html = await res.text();
-  const match = html.match(/href=['"]?(https:\/\/[^'">\s]+\.gz[^'">\s]*)/);
+
+  // Prefer PriceFull files; fall back to any .gz
+  const match =
+    html.match(/href=['"]?([^'">\s]*PriceFull[^'">\s]*\.gz[^'">\s]*)/i) ??
+    html.match(/href=['"]?([^'">\s]+\.gz[^'">\s]*)/i);
   if (!match) return null;
 
-  // Unescape HTML entities
-  return match[1].replace(/&amp;/g, "&");
+  const href = match[1].replace(/&amp;/g, "&");
+  if (href.startsWith("http")) return href;
+  return new URL(href, listingPageUrl).toString();
+}
+
+/** Fetch the Victory (laibcatalog) file list API and return the latest PriceFull URL. */
+export async function getLatestPriceFullUrlFromVictoryApi(chainId: string): Promise<string | null> {
+  const res = await fetch(
+    `https://laibcatalog.co.il/webapi/api/getfiles?edi=${chainId}`,
+    { cache: "no-store" }
+  );
+  if (!res.ok) return null;
+
+  const files = (await res.json()) as Array<{ name?: string }>;
+  const latest = files
+    .map((f) => f.name ?? "")
+    .filter((n) => /PriceFull/i.test(n) && n.endsWith(".gz"))
+    .sort()
+    .at(-1);
+
+  if (!latest) return null;
+  return `https://laibcatalog.co.il/webapi/${chainId}/${latest}`;
 }
 
 /** Fetch a CPFTA gzip+XML price file and parse it. */

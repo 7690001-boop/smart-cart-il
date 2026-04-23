@@ -19,6 +19,23 @@ function dedupeItems(items: GovernmentCatalogItem[]) {
   return [...map.values()];
 }
 
+export async function syncSingleRetailSource(sourceKey: string) {
+  const sources = await getOfficialRetailSources();
+  const source = sources.find((s) => s.id === sourceKey);
+  if (!source) throw new Error(`Retail source not found: ${sourceKey}`);
+
+  try {
+    const items = await fetchOfficialSourceItems(source);
+    await persistRetailOffers(items, source.id);
+    await updateRetailSourceCatalogSyncStatus({ sourceKey, status: "success" });
+    return { sourceKey, fetchedItems: items.length, status: "success" as const };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "sync failed";
+    await updateRetailSourceCatalogSyncStatus({ sourceKey, status: "failed", errorMessage });
+    return { sourceKey, fetchedItems: 0, status: "failed" as const, errorMessage };
+  }
+}
+
 export async function syncOfficialRetailSources(context?: {
   correlationId?: string;
   idempotencyKey?: string;

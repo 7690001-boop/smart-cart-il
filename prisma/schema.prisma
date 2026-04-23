@@ -95,7 +95,7 @@ model RetailSource {
   sourceKey           String   @unique
   nameHe              String
   nameEn              String?
-  chainId             String   // CPFTA chain ID (maps to Chain.chainId)
+  storeId             String   // store key, e.g. "shufersal", "rami-levy"
   feedUrl             String
   authHint            String?  // feed format hint, e.g. "cpfta-xml-listing"
   linkHash            String

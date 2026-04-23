@@ -5,9 +5,10 @@ import {
   getLatestPriceFullUrlFromListingPage,
   getLatestPriceFullUrlFromCarrefourPage,
   getLatestPriceFullUrlFromWoltIndex,
+  getLatestPriceFullUrlFromVictoryApi,
 } from "@/lib/ingestion/cpftaXmlParser";
 
-type FeedFormat = "json" | "cpfta-xml-listing" | "carrefour-listing" | "wolt-listing";
+type FeedFormat = "json" | "cpfta-xml-listing" | "carrefour-listing" | "wolt-listing" | "victory-listing";
 
 export type OfficialRetailSource = {
   id: string;
@@ -25,6 +26,86 @@ const defaultOfficialSources: OfficialRetailSource[] = [
     nameEn: "Shufersal",
     storeId: "shufersal",
     feedUrl: "https://prices.shufersal.co.il/FileObject/UpdateCategory?catID=2&storeId=0&sort=Time&sortdir=DESC",
+    format: "cpfta-xml-listing"
+  },
+  {
+    id: "rami-levy",
+    nameHe: "רמי לוי",
+    nameEn: "Rami Levy",
+    storeId: "rami-levy",
+    feedUrl: "https://url.retail.publishedprices.co.il/ramilevy/",
+    format: "cpfta-xml-listing"
+  },
+  {
+    id: "victory",
+    nameHe: "ויקטורי",
+    nameEn: "Victory",
+    storeId: "victory",
+    feedUrl: "7290696200003",
+    format: "victory-listing"
+  },
+  {
+    id: "mega",
+    nameHe: "מגה",
+    nameEn: "Mega",
+    storeId: "mega",
+    feedUrl: "https://prices.mega.co.il/",
+    format: "carrefour-listing"
+  },
+  {
+    id: "yochananof",
+    nameHe: "יוחננוף",
+    nameEn: "Yochananof",
+    storeId: "yochananof",
+    feedUrl: "https://url.retail.publishedprices.co.il/yohananof/",
+    format: "cpfta-xml-listing"
+  },
+  {
+    id: "osher-ad",
+    nameHe: "אושר עד",
+    nameEn: "Osher Ad",
+    storeId: "osher-ad",
+    feedUrl: "https://url.retail.publishedprices.co.il/osherad/",
+    format: "cpfta-xml-listing"
+  },
+  {
+    id: "hazi-hinam",
+    nameHe: "חצי חינם",
+    nameEn: "Hazi Hinam",
+    storeId: "hazi-hinam",
+    feedUrl: "https://url.retail.publishedprices.co.il/HaziHinam/",
+    format: "cpfta-xml-listing"
+  },
+  {
+    id: "tiv-taam",
+    nameHe: "טיב טעם",
+    nameEn: "Tiv Taam",
+    storeId: "tiv-taam",
+    feedUrl: "https://url.retail.publishedprices.co.il/TivTaam/",
+    format: "cpfta-xml-listing"
+  },
+  {
+    id: "dor-alon",
+    nameHe: "דור אלון",
+    nameEn: "Dor Alon",
+    storeId: "dor-alon",
+    feedUrl: "https://url.retail.publishedprices.co.il/doralon/",
+    format: "cpfta-xml-listing"
+  },
+  {
+    id: "keshet",
+    nameHe: "קשת טעמים",
+    nameEn: "Keshet",
+    storeId: "keshet",
+    feedUrl: "https://url.retail.publishedprices.co.il/Keshet/",
+    format: "cpfta-xml-listing"
+  },
+  {
+    id: "super-pharm",
+    nameHe: "סופר-פארם",
+    nameEn: "Super Pharm",
+    storeId: "super-pharm",
+    feedUrl: "https://prices.super-pharm.co.il/",
     format: "cpfta-xml-listing"
   },
   {
@@ -101,12 +182,13 @@ export async function getOfficialRetailSources() {
       id: s.sourceKey,
       nameHe: s.nameHe,
       nameEn: s.nameEn ?? s.nameHe,
-      storeId: s.chainId,
+      storeId: s.storeId,
       feedUrl: s.feedUrl,
       format: (
         s.authHint === "cpfta-xml-listing" ? "cpfta-xml-listing" :
         s.authHint === "carrefour-listing" ? "carrefour-listing" :
         s.authHint === "wolt-listing" ? "wolt-listing" :
+        s.authHint === "victory-listing" ? "victory-listing" :
         "json"
       ) as FeedFormat
     }));
@@ -138,12 +220,13 @@ export async function getDueOfficialRetailSources(now = new Date()) {
       id: s.sourceKey,
       nameHe: s.nameHe,
       nameEn: s.nameEn ?? s.nameHe,
-      storeId: s.chainId,
+      storeId: s.storeId,
       feedUrl: s.feedUrl,
       format: (
         s.authHint === "cpfta-xml-listing" ? "cpfta-xml-listing" :
         s.authHint === "carrefour-listing" ? "carrefour-listing" :
         s.authHint === "wolt-listing" ? "wolt-listing" :
+        s.authHint === "victory-listing" ? "victory-listing" :
         "json"
       ) as FeedFormat
     }));
@@ -182,6 +265,12 @@ export async function fetchOfficialSourceItems(source: OfficialRetailSource) {
   if (source.format === "wolt-listing") {
     const fileUrl = await getLatestPriceFullUrlFromWoltIndex(source.feedUrl);
     if (!fileUrl) throw new Error(`No Wolt file found for ${source.nameEn}`);
+    return fetchAndParseCpftaFeed(fileUrl);
+  }
+
+  if (source.format === "victory-listing") {
+    const fileUrl = await getLatestPriceFullUrlFromVictoryApi(source.feedUrl);
+    if (!fileUrl) throw new Error(`No Victory file found for chain ${source.feedUrl}`);
     return fetchAndParseCpftaFeed(fileUrl);
   }
 

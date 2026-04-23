@@ -19,9 +19,14 @@ export default async function AdminClustersPage() {
     <section className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">ניהול התאמות מוצרים</h1>
-        <Link href="/admin/import-status" className="rounded border bg-white px-3 py-1 text-sm">
-          סטטוס ייבוא
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/admin/retail-sources" className="rounded border bg-white px-3 py-1 text-sm">
+            מקורות קמעונאים
+          </Link>
+          <Link href="/admin/import-status" className="rounded border bg-white px-3 py-1 text-sm">
+            סטטוס ייבוא
+          </Link>
+        </div>
       </div>
       <ul className="space-y-3">
         {clusterReviewQueue.map((q) => {
