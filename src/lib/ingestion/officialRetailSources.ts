@@ -17,6 +17,7 @@ export type OfficialRetailSource = {
   storeId: string;
   feedUrl?: string;
   format: FeedFormat;
+  credentials?: { username: string; password: string };
 };
 
 const defaultOfficialSources: OfficialRetailSource[] = [
@@ -190,7 +191,10 @@ export async function getOfficialRetailSources() {
         s.authHint === "wolt-listing" ? "wolt-listing" :
         s.authHint === "victory-listing" ? "victory-listing" :
         "json"
-      ) as FeedFormat
+      ) as FeedFormat,
+      credentials: s.loginUsername && s.loginPassword
+        ? { username: s.loginUsername, password: s.loginPassword }
+        : undefined
     }));
   }
 
@@ -228,7 +232,10 @@ export async function getDueOfficialRetailSources(now = new Date()) {
         s.authHint === "wolt-listing" ? "wolt-listing" :
         s.authHint === "victory-listing" ? "victory-listing" :
         "json"
-      ) as FeedFormat
+      ) as FeedFormat,
+      credentials: s.loginUsername && s.loginPassword
+        ? { username: s.loginUsername, password: s.loginPassword }
+        : undefined
     }));
 }
 
@@ -249,32 +256,36 @@ export async function updateRetailSourceCatalogSyncStatus(params: {
 
 export async function fetchOfficialSourceItems(source: OfficialRetailSource) {
   if (!source.feedUrl) return [];
+  const creds = source.credentials;
 
   if (source.format === "cpfta-xml-listing") {
-    const fileUrl = await getLatestPriceFullUrlFromListingPage(source.feedUrl);
+    const fileUrl = await getLatestPriceFullUrlFromListingPage(source.feedUrl, creds);
     if (!fileUrl) throw new Error(`No CPFTA file found at listing page for ${source.nameEn}`);
-    return fetchAndParseCpftaFeed(fileUrl);
+    return fetchAndParseCpftaFeed(fileUrl, creds);
   }
 
   if (source.format === "carrefour-listing") {
     const fileUrl = await getLatestPriceFullUrlFromCarrefourPage(source.feedUrl);
     if (!fileUrl) throw new Error(`No Carrefour file found for ${source.nameEn}`);
-    return fetchAndParseCpftaFeed(fileUrl);
+    return fetchAndParseCpftaFeed(fileUrl, creds);
   }
 
   if (source.format === "wolt-listing") {
     const fileUrl = await getLatestPriceFullUrlFromWoltIndex(source.feedUrl);
     if (!fileUrl) throw new Error(`No Wolt file found for ${source.nameEn}`);
-    return fetchAndParseCpftaFeed(fileUrl);
+    return fetchAndParseCpftaFeed(fileUrl, creds);
   }
 
   if (source.format === "victory-listing") {
     const fileUrl = await getLatestPriceFullUrlFromVictoryApi(source.feedUrl);
     if (!fileUrl) throw new Error(`No Victory file found for chain ${source.feedUrl}`);
-    return fetchAndParseCpftaFeed(fileUrl);
+    return fetchAndParseCpftaFeed(fileUrl, creds);
   }
 
-  const response = await fetch(source.feedUrl, { cache: "no-store" });
+  const authHeader: Record<string, string> = creds
+    ? { Authorization: `Basic ${Buffer.from(`${creds.username}:${creds.password}`).toString("base64")}` }
+    : {};
+  const response = await fetch(source.feedUrl, { headers: authHeader, cache: "no-store" });
   if (!response.ok) {
     throw new Error(`Official source failed (${response.status}) for ${source.nameEn}`);
   }

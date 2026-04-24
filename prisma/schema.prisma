@@ -98,6 +98,8 @@ model RetailSource {
   storeId             String   // store key, e.g. "shufersal", "rami-levy"
   feedUrl             String
   authHint            String?  // feed format hint, e.g. "cpfta-xml-listing"
+  loginUsername       String?  // HTTP Basic / form auth username for the feed
+  loginPassword       String?  // HTTP Basic / form auth password (plain, admin-only)
   linkHash            String
   isActive            Boolean  @default(true)
   discoveredFrom      String

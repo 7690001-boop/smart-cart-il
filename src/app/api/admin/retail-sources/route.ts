@@ -12,6 +12,8 @@ const createSchema = z.object({
   storeId: z.string().min(1),
   feedUrl: z.string().min(1),
   authHint: z.string().optional(),
+  loginUsername: z.string().optional(),
+  loginPassword: z.string().optional(),
   syncCadenceMinutes: z.number().int().min(15).default(180)
 });
 
@@ -45,6 +47,8 @@ export async function POST(request: Request) {
       storeId: body.data.storeId,
       feedUrl: body.data.feedUrl,
       authHint: body.data.authHint,
+      loginUsername: body.data.loginUsername ?? null,
+      loginPassword: body.data.loginPassword ?? null,
       linkHash: Buffer.from(body.data.feedUrl).toString("base64").slice(0, 16),
       isActive: true,
       discoveredFrom: "admin",

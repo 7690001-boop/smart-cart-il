@@ -10,6 +10,8 @@ const patchSchema = z.object({
   nameEn: z.string().optional(),
   feedUrl: z.string().min(1).optional(),
   authHint: z.string().optional(),
+  loginUsername: z.string().optional(),
+  loginPassword: z.string().optional(),
   syncCadenceMinutes: z.number().int().min(15).optional(),
   isActive: z.boolean().optional()
 });

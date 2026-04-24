@@ -94,11 +94,18 @@ export async function parseCpftaGzipXml(buffer: Buffer): Promise<GovernmentCatal
   return parseItems(xmlContent, chainId);
 }
 
+type Credentials = { username: string; password: string };
+
+function basicAuthHeader(creds?: Credentials): Record<string, string> {
+  if (!creds) return {};
+  return { Authorization: `Basic ${Buffer.from(`${creds.username}:${creds.password}`).toString("base64")}` };
+}
+
 /** Fetch a CPFTA listing page and extract the most recent PriceFull .gz file URL.
  *  Supports both absolute and relative hrefs (url.retail.publishedprices.co.il uses relative). */
-export async function getLatestPriceFullUrlFromListingPage(listingPageUrl: string): Promise<string | null> {
+export async function getLatestPriceFullUrlFromListingPage(listingPageUrl: string, credentials?: Credentials): Promise<string | null> {
   const res = await fetch(listingPageUrl, {
-    headers: { "X-Requested-With": "XMLHttpRequest" },
+    headers: { "X-Requested-With": "XMLHttpRequest", ...basicAuthHeader(credentials) },
     cache: "no-store"
   });
   if (!res.ok) return null;
@@ -136,8 +143,8 @@ export async function getLatestPriceFullUrlFromVictoryApi(chainId: string): Prom
 }
 
 /** Fetch a CPFTA gzip+XML price file and parse it. */
-export async function fetchAndParseCpftaFeed(fileUrl: string): Promise<GovernmentCatalogItem[]> {
-  const res = await fetch(fileUrl, { cache: "no-store" });
+export async function fetchAndParseCpftaFeed(fileUrl: string, credentials?: Credentials): Promise<GovernmentCatalogItem[]> {
+  const res = await fetch(fileUrl, { headers: { ...basicAuthHeader(credentials) }, cache: "no-store" });
   if (!res.ok) throw new Error(`CPFTA feed fetch failed (${res.status}): ${fileUrl}`);
 
   const buffer = Buffer.from(await res.arrayBuffer());

@@ -10,6 +10,8 @@ type RetailSource = {
   storeId: string;
   feedUrl: string;
   authHint: string | null;
+  loginUsername: string | null;
+  loginPassword: string | null;
   syncCadenceMinutes: number;
   isActive: boolean;
   lastCatalogSyncAt: string | null;
@@ -22,6 +24,8 @@ type EditState = {
   nameEn: string;
   feedUrl: string;
   authHint: string;
+  loginUsername: string;
+  loginPassword: string;
   syncCadenceMinutes: number;
 };
 
@@ -32,6 +36,8 @@ type NewSourceState = {
   storeId: string;
   feedUrl: string;
   authHint: string;
+  loginUsername: string;
+  loginPassword: string;
   syncCadenceMinutes: number;
 };
 
@@ -67,8 +73,10 @@ export default function RetailSourcesManager({ initialSources }: { initialSource
   const [showAdd, setShowAdd] = useState(false);
   const [newSource, setNewSource] = useState<NewSourceState>({
     sourceKey: "", nameHe: "", nameEn: "", storeId: "", feedUrl: "",
-    authHint: "cpfta-xml-listing", syncCadenceMinutes: 180
+    authHint: "cpfta-xml-listing", loginUsername: "", loginPassword: "", syncCadenceMinutes: 180
   });
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,11 +105,14 @@ export default function RetailSourcesManager({ initialSources }: { initialSource
 
   function startEdit(source: RetailSource) {
     setEditing(source.sourceKey);
+    setShowEditPassword(false);
     setEditValues({
       nameHe: source.nameHe,
       nameEn: source.nameEn ?? "",
       feedUrl: source.feedUrl,
       authHint: source.authHint ?? "",
+      loginUsername: source.loginUsername ?? "",
+      loginPassword: source.loginPassword ?? "",
       syncCadenceMinutes: source.syncCadenceMinutes
     });
   }
@@ -146,7 +157,7 @@ export default function RetailSourcesManager({ initialSources }: { initialSource
     const created = await res.json() as RetailSource;
     setSources((s) => [created, ...s]);
     setShowAdd(false);
-    setNewSource({ sourceKey: "", nameHe: "", nameEn: "", storeId: "", feedUrl: "", authHint: "cpfta-xml-listing", syncCadenceMinutes: 180 });
+    setNewSource({ sourceKey: "", nameHe: "", nameEn: "", storeId: "", feedUrl: "", authHint: "cpfta-xml-listing", loginUsername: "", loginPassword: "", syncCadenceMinutes: 180 });
   }
 
   return (
@@ -193,6 +204,31 @@ export default function RetailSourcesManager({ initialSources }: { initialSource
               </select>
             </label>
             <label className="flex flex-col gap-1">
+              <span className="text-xs text-slate-500">שם משתמש (אם נדרש)</span>
+              <input
+                className="rounded border px-2 py-1"
+                autoComplete="off"
+                value={newSource.loginUsername}
+                onChange={(e) => setNewSource((s) => ({ ...s, loginUsername: e.target.value }))}
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-slate-500">סיסמה (אם נדרש)</span>
+              <div className="flex gap-1">
+                <input
+                  type={showNewPassword ? "text" : "password"}
+                  className="flex-1 rounded border px-2 py-1"
+                  autoComplete="new-password"
+                  value={newSource.loginPassword}
+                  onChange={(e) => setNewSource((s) => ({ ...s, loginPassword: e.target.value }))}
+                />
+                <button type="button" onClick={() => setShowNewPassword((v) => !v)}
+                  className="rounded border px-2 py-1 text-xs text-slate-500 hover:bg-slate-50">
+                  {showNewPassword ? "הסתר" : "הצג"}
+                </button>
+              </div>
+            </label>
+            <label className="flex flex-col gap-1">
               <span className="text-xs text-slate-500">קצב סנכרון (דקות)</span>
               <input
                 type="number" min={15}
@@ -218,6 +254,7 @@ export default function RetailSourcesManager({ initialSources }: { initialSource
             <tr>
               <th className="px-3 py-2 font-medium">רשת</th>
               <th className="px-3 py-2 font-medium">פורמט</th>
+              <th className="px-3 py-2 font-medium">פרטי גישה</th>
               <th className="px-3 py-2 font-medium">סנכרון אחרון</th>
               <th className="px-3 py-2 font-medium">סטטוס</th>
               <th className="px-3 py-2 font-medium">קצב</th>
@@ -234,6 +271,11 @@ export default function RetailSourcesManager({ initialSources }: { initialSource
                     <div className="text-xs text-slate-400">{source.sourceKey}</div>
                   </td>
                   <td className="px-3 py-2 text-xs text-slate-500">{source.authHint ?? "json"}</td>
+                  <td className="px-3 py-2 text-xs">
+                    {source.loginUsername
+                      ? <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-700">{source.loginUsername}</span>
+                      : <span className="text-slate-300">—</span>}
+                  </td>
                   <td className="px-3 py-2 text-xs text-slate-500">{formatDate(source.lastCatalogSyncAt)}</td>
                   <td className="px-3 py-2">
                     <StatusBadge status={source.lastCatalogStatus} />
@@ -282,7 +324,7 @@ export default function RetailSourcesManager({ initialSources }: { initialSource
                 </tr>
                 {editing === source.sourceKey && editValues && (
                   <tr key={`${source.sourceKey}-edit`} className="bg-slate-50">
-                    <td colSpan={7} className="px-3 py-3">
+                    <td colSpan={8} className="px-3 py-3">
                       <div className="grid grid-cols-3 gap-3">
                         <label className="flex flex-col gap-1">
                           <span className="text-xs text-slate-500">שם בעברית</span>
@@ -300,6 +342,25 @@ export default function RetailSourcesManager({ initialSources }: { initialSource
                             onChange={(e) => setEditValues((v) => v && ({ ...v, authHint: e.target.value }))}>
                             {FORMAT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                           </select>
+                        </label>
+                        <label className="flex flex-col gap-1">
+                          <span className="text-xs text-slate-500">שם משתמש</span>
+                          <input className="rounded border px-2 py-1 text-sm" autoComplete="off"
+                            value={editValues.loginUsername}
+                            onChange={(e) => setEditValues((v) => v && ({ ...v, loginUsername: e.target.value }))} />
+                        </label>
+                        <label className="flex flex-col gap-1">
+                          <span className="text-xs text-slate-500">סיסמה</span>
+                          <div className="flex gap-1">
+                            <input type={showEditPassword ? "text" : "password"}
+                              className="flex-1 rounded border px-2 py-1 text-sm" autoComplete="new-password"
+                              value={editValues.loginPassword}
+                              onChange={(e) => setEditValues((v) => v && ({ ...v, loginPassword: e.target.value }))} />
+                            <button type="button" onClick={() => setShowEditPassword((v) => !v)}
+                              className="rounded border px-2 py-1 text-xs text-slate-500 hover:bg-slate-50">
+                              {showEditPassword ? "הסתר" : "הצג"}
+                            </button>
+                          </div>
                         </label>
                         <label className="flex flex-col gap-1">
                           <span className="text-xs text-slate-500">קצב סנכרון (דקות)</span>
