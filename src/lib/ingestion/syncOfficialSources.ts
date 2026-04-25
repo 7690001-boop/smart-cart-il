@@ -10,6 +10,13 @@ import { GovernmentCatalogItem, IngestionRunRecord } from "@/lib/types";
 import { log } from "@/lib/observability/logger";
 import { persistRetailOffers } from "@/lib/ingestion/persistOffers";
 
+function formatFetchError(error: unknown): string {
+  if (!(error instanceof Error)) return "sync failed";
+  const cause = (error as Error & { cause?: unknown }).cause;
+  if (cause instanceof Error) return `${error.message}: ${cause.message}`;
+  return error.message;
+}
+
 function dedupeItems(items: GovernmentCatalogItem[]) {
   const map = new Map<string, GovernmentCatalogItem>();
   for (const item of items) {
@@ -30,7 +37,7 @@ export async function syncSingleRetailSource(sourceKey: string) {
     await updateRetailSourceCatalogSyncStatus({ sourceKey, status: "success" });
     return { sourceKey, fetchedItems: items.length, status: "success" as const };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "sync failed";
+    const errorMessage = formatFetchError(error);
     await updateRetailSourceCatalogSyncStatus({ sourceKey, status: "failed", errorMessage });
     return { sourceKey, fetchedItems: 0, status: "failed" as const, errorMessage };
   }
@@ -77,13 +84,13 @@ export async function syncOfficialRetailSources(context?: {
         await updateRetailSourceCatalogSyncStatus({
           sourceKey: source.id,
           status: "failed",
-          errorMessage: error instanceof Error ? error.message : "source sync failed"
+          errorMessage: formatFetchError(error)
         });
         run.sourceDetails?.push({
           sourceName: source.nameHe,
           fetchedItems: 0,
           status: "failed",
-          errorMessage: error instanceof Error ? error.message : "source sync failed"
+          errorMessage: formatFetchError(error)
         });
       }
     }

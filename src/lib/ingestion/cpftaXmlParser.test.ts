@@ -183,7 +183,17 @@ describe("getLatestPriceFullUrlFromVictoryApi", () => {
     expect(url).toBe("https://laibcatalog.co.il/webapi/7290696200003/PriceFull7290696200003-20250103.gz");
   });
 
-  it("returns null when no PriceFull files exist", async () => {
+  it("falls back to latest Price file when no PriceFull files exist", async () => {
+    mockFetch([
+      { name: "Price7290696200003-001-20250103.gz" },
+      { name: "Price7290696200003-001-20250101.gz" },
+      { name: "Stores7290696200003-20250103.gz" },
+    ]);
+    const url = await getLatestPriceFullUrlFromVictoryApi("7290696200003");
+    expect(url).toContain("Price7290696200003-001-20250103.gz");
+  });
+
+  it("returns null when no Price files exist at all", async () => {
     mockFetch([{ name: "Stores7290696200003-20250103.gz" }]);
     expect(await getLatestPriceFullUrlFromVictoryApi("7290696200003")).toBeNull();
   });

@@ -101,11 +101,19 @@ function basicAuthHeader(creds?: Credentials): Record<string, string> {
   return { Authorization: `Basic ${Buffer.from(`${creds.username}:${creds.password}`).toString("base64")}` };
 }
 
+const BROWSER_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+
 /** Fetch a CPFTA listing page and extract the most recent PriceFull .gz file URL.
- *  Supports both absolute and relative hrefs (url.retail.publishedprices.co.il uses relative). */
+ *  Supports both absolute and relative hrefs (url.retail.publishedprices.co.il uses relative).
+ *  publishedprices.co.il requires X-Requested-With; other sites need a browser User-Agent. */
 export async function getLatestPriceFullUrlFromListingPage(listingPageUrl: string, credentials?: Credentials): Promise<string | null> {
+  const needsXhr = listingPageUrl.includes("publishedprices.co.il");
   const res = await fetch(listingPageUrl, {
-    headers: { "X-Requested-With": "XMLHttpRequest", ...basicAuthHeader(credentials) },
+    headers: {
+      "User-Agent": BROWSER_UA,
+      ...(needsXhr ? { "X-Requested-With": "XMLHttpRequest" } : {}),
+      ...basicAuthHeader(credentials)
+    },
     cache: "no-store"
   });
   if (!res.ok) return null;
@@ -123,20 +131,24 @@ export async function getLatestPriceFullUrlFromListingPage(listingPageUrl: strin
   return new URL(href, listingPageUrl).toString();
 }
 
-/** Fetch the Victory (laibcatalog) file list API and return the latest PriceFull URL. */
+/** Fetch the Victory (laibcatalog) file list API and return the latest price file URL.
+ *  laibcatalog uses Price{chainId}-{branch}-{date}.gz naming (no "PriceFull" prefix). */
 export async function getLatestPriceFullUrlFromVictoryApi(chainId: string): Promise<string | null> {
   const res = await fetch(
     `https://laibcatalog.co.il/webapi/api/getfiles?edi=${chainId}`,
-    { cache: "no-store" }
+    { headers: { "User-Agent": BROWSER_UA }, cache: "no-store" }
   );
   if (!res.ok) return null;
 
-  const files = (await res.json()) as Array<{ name?: string }>;
-  const latest = files
+  const files = (await res.json()) as Array<{ name?: string; fileDate?: string }>;
+
+  // Prefer latest PriceFull if available; fall back to most recent non-promo Price file
+  const priceFiles = files
     .map((f) => f.name ?? "")
-    .filter((n) => /PriceFull/i.test(n) && n.endsWith(".gz"))
-    .sort()
-    .at(-1);
+    .filter((n) => /^Price/i.test(n) && !/promo/i.test(n) && n.endsWith(".gz"));
+
+  const priceFullFiles = priceFiles.filter((n) => /PriceFull/i.test(n));
+  const latest = (priceFullFiles.length > 0 ? priceFullFiles : priceFiles).sort().at(-1);
 
   if (!latest) return null;
   return `https://laibcatalog.co.il/webapi/${chainId}/${latest}`;
@@ -144,7 +156,10 @@ export async function getLatestPriceFullUrlFromVictoryApi(chainId: string): Prom
 
 /** Fetch a CPFTA gzip+XML price file and parse it. */
 export async function fetchAndParseCpftaFeed(fileUrl: string, credentials?: Credentials): Promise<GovernmentCatalogItem[]> {
-  const res = await fetch(fileUrl, { headers: { ...basicAuthHeader(credentials) }, cache: "no-store" });
+  const res = await fetch(fileUrl, {
+    headers: { "User-Agent": BROWSER_UA, ...basicAuthHeader(credentials) },
+    cache: "no-store"
+  });
   if (!res.ok) throw new Error(`CPFTA feed fetch failed (${res.status}): ${fileUrl}`);
 
   const buffer = Buffer.from(await res.arrayBuffer());
@@ -154,7 +169,7 @@ export async function fetchAndParseCpftaFeed(fileUrl: string, credentials?: Cred
 /** Fetch the Carrefour listing page and extract the most recent PriceFull file URL.
  *  The page embeds a JS files array: {"name":"PriceFull...", ...} and a path variable. */
 export async function getLatestPriceFullUrlFromCarrefourPage(listingPageUrl: string): Promise<string | null> {
-  const res = await fetch(listingPageUrl, { cache: "no-store" });
+  const res = await fetch(listingPageUrl, { headers: { "User-Agent": BROWSER_UA }, cache: "no-store" });
   if (!res.ok) return null;
 
   const html = await res.text();
@@ -173,7 +188,7 @@ export async function getLatestPriceFullUrlFromCarrefourPage(listingPageUrl: str
 /** Fetch the Wolt index page → latest date page → first PriceFull file URL.
  *  Index lists date HTML files; each date page lists download hrefs. */
 export async function getLatestPriceFullUrlFromWoltIndex(indexUrl: string): Promise<string | null> {
-  const indexRes = await fetch(indexUrl, { cache: "no-store" });
+  const indexRes = await fetch(indexUrl, { headers: { "User-Agent": BROWSER_UA }, cache: "no-store" });
   if (!indexRes.ok) return null;
 
   const indexHtml = await indexRes.text();
@@ -182,7 +197,7 @@ export async function getLatestPriceFullUrlFromWoltIndex(indexUrl: string): Prom
   const latestDate = dateMatch[1];
 
   const baseUrl = indexUrl.replace("/index.html", "");
-  const datePageRes = await fetch(`${baseUrl}/${latestDate}.html`, { cache: "no-store" });
+  const datePageRes = await fetch(`${baseUrl}/${latestDate}.html`, { headers: { "User-Agent": BROWSER_UA }, cache: "no-store" });
   if (!datePageRes.ok) return null;
 
   const dateHtml = await datePageRes.text();
